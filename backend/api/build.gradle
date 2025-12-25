@@ -37,6 +37,7 @@ dependencies {
     implementation libs.spring.boot.starter.security
     implementation libs.spring.boot.starter.oauth2.resource.server
     implementation libs.spring.boot.starter.cache
+    implementation libs.springdoc.openapi.ui
 
     runtimeOnly libs.h2
     runtimeOnly libs.p6spy

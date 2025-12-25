@@ -33,6 +33,9 @@ public class SecurityConfig {
               auth ->
                   auth.requestMatchers("/api/health")
                       .permitAll()
+                      // Swagger UI endpoints
+                      .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html")
+                      .permitAll()
                       .requestMatchers(HttpMethod.GET, "/api/**")
                       .permitAll()
                       .anyRequest()

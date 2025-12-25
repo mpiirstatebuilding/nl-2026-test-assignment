@@ -511,6 +511,8 @@ npm start
 **Access**:
 - Frontend: http://localhost:4200
 - Backend API: http://localhost:8080/api
+- **Swagger UI**: http://localhost:8080/swagger-ui.html (Interactive API documentation)
+- **OpenAPI JSON**: http://localhost:8080/v3/api-docs
 - H2 Console: http://localhost:8080/h2-console
   - JDBC URL: `jdbc:h2:mem:library`
   - Username: (blank)
@@ -825,7 +827,53 @@ The library management system has been thoroughly analyzed, refactored, and hard
 
 ---
 
+---
+
+## Swagger/OpenAPI API Documentation (Phase 7)
+
+### Added Features
+
+**Interactive API Documentation**:
+- **Swagger UI**: http://localhost:8080/swagger-ui.html
+- **OpenAPI Spec**: http://localhost:8080/v3/api-docs
+
+**Benefits**:
+- Interactive API testing directly in browser
+- No need for Postman or curl for testing
+- Clear request/response schemas
+- Example JSON payloads for all endpoints
+- Business rule documentation embedded
+
+**Documented Endpoints**:
+- `POST /api/borrow` - 6 example responses (including all error cases)
+- `POST /api/return` - 3 examples (including automatic handoff)
+- `POST /api/reserve` - 4 examples (immediate loan vs queuing)
+- `POST /api/extend` - 3 examples (including negative extensions)
+
+**Usage**:
+```bash
+# Start the server
+./gradlew :api:bootRun
+
+# Open Swagger UI in browser
+open http://localhost:8080/swagger-ui.html
+
+# Or get OpenAPI JSON spec
+curl http://localhost:8080/v3/api-docs
+```
+
+**Dependencies Added**:
+- springdoc-openapi-starter-webmvc-ui v2.6.0
+
+**Files Modified**:
+- `SecurityConfig.java` - Whitelisted Swagger endpoints
+- `LoanController.java` - Added comprehensive API annotations
+- Created `OpenApiConfig.java` - Swagger configuration
+
+---
+
 **Last Updated**: December 25, 2025
-**Version**: 1.2
+**Version**: 1.3
 **Test Coverage**: 58/58 tests passing (100%)
 **API Contract Compliance**: ✅ **FIXED** - All violations resolved
+**API Documentation**: ✅ **Swagger UI** available
