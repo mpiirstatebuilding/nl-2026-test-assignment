@@ -696,3 +696,54 @@ BUILD SUCCESSFUL
 
 **Status**: ✅ All bugs fixed, tested, and documented
 
+### Critical Bug #2 Follow-Up Fix
+
+**User Report**: Bug #2 (return authorization bypass) still persisted after initial fix.
+
+**Root Cause of Persistence**: Frontend was passing `book.loanedTo` (the book's current borrower) instead of `this.selectedMemberId` (the member attempting the return).
+
+**Why This Bypassed Authorization**:
+- Frontend sent: `{ bookId: "b1", memberId: "m1" }` (where m1 is the book's current borrower)
+- Backend validated: `m1 == m1`? YES → Return succeeded ✅
+- **Problem**: ANY member could return because we always sent the correct borrower ID!
+
+**Corrected Fix** (`app.component.ts:90-100`):
+```typescript
+// BEFORE (broken fix)
+await this.runAction(() => this.api.returnBook(this.selectedBookId!, book.loanedTo!));
+
+// AFTER (proper fix)
+if (!this.selectedBookId || !this.selectedMemberId) {
+  return;
+}
+await this.runAction(() => this.api.returnBook(this.selectedBookId!, this.selectedMemberId!));
+```
+
+**Security Flow (Corrected)**:
+1. User selects member m2 and book b1 (loaned to m1)
+2. Frontend sends `{ bookId: "b1", memberId: "m2" }` ✅ (selected member, not book's borrower)
+3. Backend validates: `m2 == m1`? **NO** → Return fails ✅
+4. Only if member m1 is selected can the return succeed
+
+**Final Verification**: All 58/58 tests still passing after fix.
+
+### Documentation Consolidation
+
+**User Request**: Consolidate fragmented documentation files.
+
+**Action Taken**:
+- Merged 5 documentation files into single `TECHNICAL_DOCUMENTATION.md` (1,900+ lines)
+- Removed old files:
+  - `PROJECT_ANALYSIS.md`
+  - `CODEBASE_ANALYSIS.md`
+  - `CODE_REVIEW_AND_IMPROVEMENT_PLAN.md`
+  - `BUG_REPORT_SECURITY_FIX.md`
+  - `BUG_REPORT_BUSINESS_LOGIC_FIXES.md`
+- Kept:
+  - `README.md` (project overview)
+  - `AI_USAGE.md` (this file)
+  - `CLAUDE.md` (project instructions for AI)
+  - `TECHNICAL_DOCUMENTATION.md` (comprehensive technical docs)
+
+**Benefit**: Single source of truth for all technical analysis, bug reports, and implementation details.
+

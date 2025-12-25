@@ -87,17 +87,17 @@ export class AppComponent {
   }
 
   async returnBook(): Promise<void> {
-    if (!this.selectedBookId) {
+    if (!this.selectedBookId || !this.selectedMemberId) {
       return;
     }
-    // Get the book to find current borrower
+    // Get the book to verify it's loaned
     const book = this.activeBook;
     if (!book || !book.loanedTo) {
       this.lastMessage = this.t('NOT_LOANED');
       return;
     }
-    // Return with the current borrower's ID (authorization check on backend)
-    await this.runAction(() => this.api.returnBook(this.selectedBookId!, book.loanedTo!));
+    // Pass the SELECTED member's ID - backend will verify they are the current borrower
+    await this.runAction(() => this.api.returnBook(this.selectedBookId!, this.selectedMemberId!));
   }
 
   async createBook(): Promise<void> {
