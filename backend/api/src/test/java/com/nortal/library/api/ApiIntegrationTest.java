@@ -153,26 +153,25 @@ class ApiIntegrationTest {
   }
 
   @Test
-  void returnWithoutMemberIdSucceeds() {
+  void returnWithoutMemberIdFailsInBusinessLogic() {
     // Borrow a book first
     ResultResponse borrow =
         rest.postForObject(url("/api/borrow"), new BorrowRequest("b1", "m1"), ResultResponse.class);
     assertThat(borrow.ok()).isTrue();
 
-    // Return with correct memberId (now required for security)
+    // Return WITHOUT memberId (API accepts it per README spec, but business logic rejects it)
     ResultWithNextResponse returned =
         rest.postForObject(
-            url("/api/return"), new ReturnRequest("b1", "m1"), ResultWithNextResponse.class);
-    assertThat(returned.ok()).isTrue();
-    assertThat(returned.nextMemberId()).isNull();
+            url("/api/return"), new ReturnRequest("b1", null), ResultWithNextResponse.class);
+    assertThat(returned.ok()).isFalse(); // Business logic rejects null memberId
 
-    // Verify book is now available
+    // Verify book is still loaned to m1 (return was rejected)
     BookResponse book =
         rest.getForObject(url("/api/books"), BooksResponse.class).items().stream()
             .filter(b -> b.id().equals("b1"))
             .findFirst()
             .orElseThrow();
-    assertThat(book.loanedTo()).isNull();
+    assertThat(book.loanedTo()).isEqualTo("m1");
   }
 
   @Test
