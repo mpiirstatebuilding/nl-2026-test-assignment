@@ -266,38 +266,38 @@ public class LibraryService {
     if (!memberRepository.existsById(memberId)) {
       return false;
     }
-    int active = 0;
-    for (Book book : bookRepository.findAll()) {
-      if (memberId.equals(book.getLoanedTo())) {
-        active++;
-        // Early exit optimization: stop scanning once limit is reached
-        if (active >= MAX_LOANS) {
-          break;
-        }
-      }
-    }
-    return active < MAX_LOANS;
+    // Optimized: O(1) query instead of O(n) scan
+    return bookRepository.countByLoanedTo(memberId) < MAX_LOANS;
   }
 
   public List<Book> searchBooks(String titleContains, Boolean availableOnly, String loanedTo) {
-    return bookRepository.findAll().stream()
-        .filter(
-            b ->
-                titleContains == null
-                    || b.getTitle().toLowerCase().contains(titleContains.toLowerCase()))
-        .filter(b -> loanedTo == null || loanedTo.equals(b.getLoanedTo()))
-        .filter(
-            b ->
-                availableOnly == null
-                    || (availableOnly ? b.getLoanedTo() == null : b.getLoanedTo() != null))
-        .toList();
+    // Optimized: Use database queries instead of in-memory filtering when possible
+    List<Book> books;
+
+    // Start with the most specific query
+    if (loanedTo != null) {
+      books = bookRepository.findByLoanedTo(loanedTo);
+    } else if (Boolean.TRUE.equals(availableOnly)) {
+      books = bookRepository.findByLoanedToIsNull();
+    } else if (Boolean.FALSE.equals(availableOnly)) {
+      // Get all loaned books (inverse of available)
+      books = bookRepository.findAll().stream().filter(b -> b.getLoanedTo() != null).toList();
+    } else {
+      books = bookRepository.findAll();
+    }
+
+    // Apply title filter in memory if needed
+    if (titleContains != null) {
+      String searchTerm = titleContains.toLowerCase();
+      books = books.stream().filter(b -> b.getTitle().toLowerCase().contains(searchTerm)).toList();
+    }
+
+    return books;
   }
 
   public List<Book> overdueBooks(LocalDate today) {
-    return bookRepository.findAll().stream()
-        .filter(b -> b.getLoanedTo() != null)
-        .filter(b -> b.getDueDate() != null && b.getDueDate().isBefore(today))
-        .toList();
+    // Optimized: O(1) database query instead of O(n) scan
+    return bookRepository.findByDueDateBefore(today);
   }
 
   public Result extendLoan(String bookId, int days) {
@@ -325,13 +325,11 @@ public class LibraryService {
     if (!memberRepository.existsById(memberId)) {
       return new MemberSummary(false, "MEMBER_NOT_FOUND", List.of(), List.of());
     }
-    List<Book> books = bookRepository.findAll();
-    List<Book> loans = new ArrayList<>();
+    // Optimized: O(2) queries instead of O(n) scan
+    List<Book> loans = bookRepository.findByLoanedTo(memberId);
+    List<Book> booksWithReservations = bookRepository.findByReservationQueueContaining(memberId);
     List<ReservationPosition> reservations = new ArrayList<>();
-    for (Book book : books) {
-      if (memberId.equals(book.getLoanedTo())) {
-        loans.add(book);
-      }
+    for (Book book : booksWithReservations) {
       int idx = book.getReservationQueue().indexOf(memberId);
       if (idx >= 0) {
         reservations.add(new ReservationPosition(book.getId(), idx));
@@ -450,17 +448,17 @@ public class LibraryService {
     }
 
     // Check if member has active loans - must return books first
-    for (Book book : bookRepository.findAll()) {
-      if (id.equals(book.getLoanedTo())) {
-        return Result.failure("MEMBER_HAS_LOANS");
-      }
+    // Optimized: O(1) query instead of O(n) scan
+    if (bookRepository.existsByLoanedTo(id)) {
+      return Result.failure("MEMBER_HAS_LOANS");
     }
 
     // Remove member from all reservation queues to maintain data integrity
-    for (Book book : bookRepository.findAll()) {
-      if (book.getReservationQueue().remove(id)) {
-        bookRepository.save(book);
-      }
+    // Optimized: Only fetch books where member is in queue
+    List<Book> booksWithReservations = bookRepository.findByReservationQueueContaining(id);
+    for (Book book : booksWithReservations) {
+      book.getReservationQueue().remove(id);
+      bookRepository.save(book);
     }
 
     memberRepository.delete(existing.get());

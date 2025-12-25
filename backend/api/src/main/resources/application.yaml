@@ -27,4 +27,17 @@ logging:
 
 library:
   security:
-    enforce: false
+    enforce: false  # Disabled by default for development/testing
+  cors:
+    allowed-origins:
+      - "http://localhost:4200"
+      - "http://localhost:8080"
+    allowed-methods:
+      - "GET"
+      - "POST"
+      - "DELETE"
+      - "OPTIONS"
+    allowed-headers:
+      - "Authorization"
+      - "Content-Type"
+    allow-credentials: true
