@@ -17,7 +17,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -107,7 +106,7 @@ class LibraryServiceTest {
 
     // Then
     assertThat(result.ok()).isFalse();
-    assertThat(result.reason()).isEqualTo("ALREADY_LOANED");
+    assertThat(result.reason()).isEqualTo("BOOK_UNAVAILABLE");
     verify(bookRepository, never()).save(any());
   }
 
@@ -262,18 +261,18 @@ class LibraryServiceTest {
 
   @Test
   void returnBook_WithOptionalMemberId() {
-    // Given: Book loaned, memberId is null (unauthenticated return)
+    // Given: Book loaned, memberId is null (security fix: now requires memberId)
     testBook.setLoanedTo("m1");
     testBook.setDueDate(LocalDate.now().plusDays(7));
 
     when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
 
-    // When
+    // When: Try to return without memberId
     ResultWithNext result = service.returnBook("b1", null);
 
-    // Then
-    assertThat(result.ok()).isTrue();
-    assertThat(testBook.getLoanedTo()).isNull();
+    // Then: Should fail (authorization required)
+    assertThat(result.ok()).isFalse();
+    verify(bookRepository, never()).save(any());
   }
 
   // ==================== RESERVE BOOK TESTS ====================
@@ -491,5 +490,144 @@ class LibraryServiceTest {
 
     // Then
     assertThat(canBorrow).isFalse();
+  }
+
+  // ==================== BUG FIX TESTS ====================
+
+  // Bug #1: Correct error messages for already-loaned books
+  @Test
+  void borrowBook_ReturnsALREADY_BORROWEDWhenMemberTriesToBorrowTheirOwnBook() {
+    // Given: Book is already loaned to m1
+    testBook.setLoanedTo("m1");
+    testBook.setDueDate(LocalDate.now().plusDays(14));
+    when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+    when(memberRepository.existsById("m1")).thenReturn(true);
+
+    // When: Same member tries to borrow again
+    Result result = service.borrowBook("b1", "m1");
+
+    // Then: Should return ALREADY_BORROWED
+    assertThat(result.ok()).isFalse();
+    assertThat(result.reason()).isEqualTo("ALREADY_BORROWED");
+    verify(bookRepository, never()).save(any(Book.class));
+  }
+
+  @Test
+  void borrowBook_ReturnsBOOK_UNAVAILABLEWhenBookLoanedToOtherMember() {
+    // Given: Book is loaned to m1
+    testBook.setLoanedTo("m1");
+    testBook.setDueDate(LocalDate.now().plusDays(14));
+    when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+    when(memberRepository.existsById("m2")).thenReturn(true);
+    when(bookRepository.countByLoanedTo("m2")).thenReturn(0L);
+
+    // When: Different member m2 tries to borrow
+    Result result = service.borrowBook("b1", "m2");
+
+    // Then: Should return BOOK_UNAVAILABLE
+    assertThat(result.ok()).isFalse();
+    assertThat(result.reason()).isEqualTo("BOOK_UNAVAILABLE");
+    verify(bookRepository, never()).save(any(Book.class));
+  }
+
+  // Bug #2: Return validation bypass
+  @Test
+  void returnBook_FailsWhenMemberIdIsNull() {
+    // Given: Book is loaned to m1
+    testBook.setLoanedTo("m1");
+    testBook.setDueDate(LocalDate.now().plusDays(14));
+    when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+
+    // When: Attempt to return without memberId
+    ResultWithNext result = service.returnBook("b1", null);
+
+    // Then: Should fail (authorization check)
+    assertThat(result.ok()).isFalse();
+    verify(bookRepository, never()).save(any(Book.class));
+  }
+
+  @Test
+  void returnBook_FailsWhenWrongMemberTriesToReturn() {
+    // Given: Book is loaned to m1
+    testBook.setLoanedTo("m1");
+    testBook.setDueDate(LocalDate.now().plusDays(14));
+    when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+
+    // When: Different member m2 tries to return
+    ResultWithNext result = service.returnBook("b1", "m2");
+
+    // Then: Should fail (not the borrower)
+    assertThat(result.ok()).isFalse();
+    verify(bookRepository, never()).save(any(Book.class));
+  }
+
+  @Test
+  void returnBook_SucceedsOnlyWhenCurrentBorrowerReturns() {
+    // Given: Book is loaned to m1
+    testBook.setLoanedTo("m1");
+    testBook.setDueDate(LocalDate.now().plusDays(14));
+    when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+
+    // When: Current borrower m1 returns
+    ResultWithNext result = service.returnBook("b1", "m1");
+
+    // Then: Should succeed
+    assertThat(result.ok()).isTrue();
+    assertThat(testBook.getLoanedTo()).isNull();
+    assertThat(testBook.getDueDate()).isNull();
+    verify(bookRepository).save(testBook);
+  }
+
+  // Bug #3: ExtendLoan authorization bypass
+  @Test
+  void extendLoan_FailsWhenWrongMemberTriesToExtend() {
+    // Given: Book is loaned to m1
+    testBook.setLoanedTo("m1");
+    testBook.setDueDate(LocalDate.now().plusDays(14));
+    when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+    when(memberRepository.existsById("m2")).thenReturn(true);
+
+    // When: Different member m2 tries to extend
+    Result result = service.extendLoan("b1", "m2", 7);
+
+    // Then: Should fail (not the borrower)
+    assertThat(result.ok()).isFalse();
+    assertThat(result.reason()).isEqualTo("NOT_BORROWER");
+    verify(bookRepository, never()).save(any(Book.class));
+  }
+
+  @Test
+  void extendLoan_SucceedsWhenCurrentBorrowerExtends() {
+    // Given: Book is loaned to m1 with due date 14 days from now
+    LocalDate originalDueDate = LocalDate.now().plusDays(14);
+    testBook.setLoanedTo("m1");
+    testBook.setDueDate(originalDueDate);
+    when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+    when(memberRepository.existsById("m1")).thenReturn(true);
+
+    // When: Current borrower m1 extends by 7 days
+    Result result = service.extendLoan("b1", "m1", 7);
+
+    // Then: Should succeed and update due date
+    assertThat(result.ok()).isTrue();
+    assertThat(testBook.getDueDate()).isEqualTo(originalDueDate.plusDays(7));
+    verify(bookRepository).save(testBook);
+  }
+
+  @Test
+  void extendLoan_FailsWhenMemberNotFound() {
+    // Given: Book is loaned
+    testBook.setLoanedTo("m1");
+    testBook.setDueDate(LocalDate.now().plusDays(14));
+    when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+    when(memberRepository.existsById("m999")).thenReturn(false);
+
+    // When: Non-existent member tries to extend
+    Result result = service.extendLoan("b1", "m999", 7);
+
+    // Then: Should fail
+    assertThat(result.ok()).isFalse();
+    assertThat(result.reason()).isEqualTo("MEMBER_NOT_FOUND");
+    verify(bookRepository, never()).save(any(Book.class));
   }
 }

@@ -59,7 +59,7 @@ public class LibraryService {
    * @param bookId the ID of the book to borrow
    * @param memberId the ID of the member borrowing the book
    * @return Result with success or failure reason (BOOK_NOT_FOUND, MEMBER_NOT_FOUND, BORROW_LIMIT,
-   *     ALREADY_LOANED, RESERVED)
+   *     ALREADY_BORROWED, BOOK_UNAVAILABLE, RESERVED)
    */
   public Result borrowBook(String bookId, String memberId) {
     Optional<Book> book = bookRepository.findById(bookId);
@@ -76,7 +76,12 @@ public class LibraryService {
 
     // Prevent double loans: check if book is already loaned
     if (entity.getLoanedTo() != null) {
-      return Result.failure("ALREADY_LOANED");
+      // Check if the member trying to borrow is the current borrower
+      if (memberId.equals(entity.getLoanedTo())) {
+        return Result.failure("ALREADY_BORROWED");
+      } else {
+        return Result.failure("BOOK_UNAVAILABLE");
+      }
     }
 
     // Enforce reservation queue: only member at head of queue can borrow
@@ -101,8 +106,7 @@ public class LibraryService {
    * <p>Business rules enforced:
    *
    * <ul>
-   *   <li>Only the current borrower can return the book (when memberId is provided)
-   *   <li>If memberId is null, uses the book's current borrower (for unauthenticated contexts)
+   *   <li>Only the current borrower can return the book (memberId is required for security)
    *   <li>Book must be currently loaned to be returned
    *   <li>If reservation queue exists, automatically loan to first eligible member
    *   <li>Skip members who no longer exist or have reached their borrow limit
@@ -110,8 +114,7 @@ public class LibraryService {
    * </ul>
    *
    * @param bookId the ID of the book being returned
-   * @param memberId the ID of the member returning the book (optional; if null, uses current
-   *     borrower)
+   * @param memberId the ID of the member returning the book (required; must match current borrower)
    * @return ResultWithNext with the ID of the member who received the book next (or null if no one)
    */
   public ResultWithNext returnBook(String bookId, String memberId) {
@@ -127,9 +130,9 @@ public class LibraryService {
       return ResultWithNext.failure();
     }
 
-    // If memberId is provided, validate that the returner is the current borrower
-    // If memberId is null, use the book's current borrower (for unauthenticated contexts)
-    if (memberId != null && !memberId.equals(entity.getLoanedTo())) {
+    // Validate that the returner is the current borrower (memberId is now required)
+    // Per API contract, memberId should always be provided for security
+    if (memberId == null || !memberId.equals(entity.getLoanedTo())) {
       return ResultWithNext.failure();
     }
 
@@ -300,7 +303,7 @@ public class LibraryService {
     return bookRepository.findByDueDateBefore(today);
   }
 
-  public Result extendLoan(String bookId, int days) {
+  public Result extendLoan(String bookId, String memberId, int days) {
     if (days == 0) {
       return Result.failure("INVALID_EXTENSION");
     }
@@ -308,9 +311,16 @@ public class LibraryService {
     if (book.isEmpty()) {
       return Result.failure("BOOK_NOT_FOUND");
     }
+    if (!memberRepository.existsById(memberId)) {
+      return Result.failure("MEMBER_NOT_FOUND");
+    }
     Book entity = book.get();
     if (entity.getLoanedTo() == null) {
       return Result.failure("NOT_LOANED");
+    }
+    // Validate that the member extending is the current borrower (authorization check)
+    if (!memberId.equals(entity.getLoanedTo())) {
+      return Result.failure("NOT_BORROWER");
     }
     LocalDate baseDate =
         entity.getDueDate() == null

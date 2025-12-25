@@ -159,10 +159,10 @@ class ApiIntegrationTest {
         rest.postForObject(url("/api/borrow"), new BorrowRequest("b1", "m1"), ResultResponse.class);
     assertThat(borrow.ok()).isTrue();
 
-    // Return without providing memberId (API contract allows this)
+    // Return with correct memberId (now required for security)
     ResultWithNextResponse returned =
         rest.postForObject(
-            url("/api/return"), new ReturnRequest("b1", null), ResultWithNextResponse.class);
+            url("/api/return"), new ReturnRequest("b1", "m1"), ResultWithNextResponse.class);
     assertThat(returned.ok()).isTrue();
     assertThat(returned.nextMemberId()).isNull();
 
@@ -228,7 +228,7 @@ class ApiIntegrationTest {
 
     ResultResponse extended =
         rest.postForObject(
-            url("/api/extend"), new LoanExtensionRequest("b3", 3), ResultResponse.class);
+            url("/api/extend"), new LoanExtensionRequest("b3", "m1", 3), ResultResponse.class);
     assertThat(extended.ok()).isTrue();
 
     BooksResponse afterExtend = rest.getForObject(url("/api/books"), BooksResponse.class);
@@ -280,7 +280,7 @@ class ApiIntegrationTest {
   void overdueEndpointListsPastDue() {
     rest.postForObject(url("/api/borrow"), new BorrowRequest("b6", "m1"), ResultResponse.class);
     rest.postForObject(
-        url("/api/extend"), new LoanExtensionRequest("b6", -30), ResultResponse.class);
+        url("/api/extend"), new LoanExtensionRequest("b6", "m1", -30), ResultResponse.class);
 
     BooksResponse overdue = rest.getForObject(url("/api/overdue"), BooksResponse.class);
     assertThat(overdue.items().stream().anyMatch(b -> b.id().equals("b6"))).isTrue();
@@ -322,7 +322,7 @@ class ApiIntegrationTest {
     ResultResponse secondBorrow =
         rest.postForObject(url("/api/borrow"), new BorrowRequest("b1", "m2"), ResultResponse.class);
     assertThat(secondBorrow.ok()).isFalse();
-    assertThat(secondBorrow.reason()).isEqualTo("ALREADY_LOANED");
+    assertThat(secondBorrow.reason()).isEqualTo("BOOK_UNAVAILABLE");
   }
 
   @Test
@@ -342,13 +342,13 @@ class ApiIntegrationTest {
 
     // m1 returns the book (should auto-loan to m2)
     rest.postForObject(
-        url("/api/return"), new ReturnRequest("b1", null), ResultWithNextResponse.class);
+        url("/api/return"), new ReturnRequest("b1", "m1"), ResultWithNextResponse.class);
 
     // m3 tries to borrow directly (should fail because book is now loaned to m2)
     ResultResponse directBorrow =
         rest.postForObject(url("/api/borrow"), new BorrowRequest("b1", "m3"), ResultResponse.class);
     assertThat(directBorrow.ok()).isFalse();
-    assertThat(directBorrow.reason()).isEqualTo("ALREADY_LOANED");
+    assertThat(directBorrow.reason()).isEqualTo("BOOK_UNAVAILABLE");
   }
 
   @Test
@@ -362,7 +362,7 @@ class ApiIntegrationTest {
     // m1 returns the book - should automatically loan to m2
     ResultWithNextResponse returned =
         rest.postForObject(
-            url("/api/return"), new ReturnRequest("b1", null), ResultWithNextResponse.class);
+            url("/api/return"), new ReturnRequest("b1", "m1"), ResultWithNextResponse.class);
     assertThat(returned.ok()).isTrue();
     assertThat(returned.nextMemberId()).isEqualTo("m2");
 
@@ -576,7 +576,7 @@ class ApiIntegrationTest {
     // m1 returns b1 - should skip vm3 (at limit) and loan to m2
     ResultWithNextResponse returned =
         rest.postForObject(
-            url("/api/return"), new ReturnRequest("b1", null), ResultWithNextResponse.class);
+            url("/api/return"), new ReturnRequest("b1", "m1"), ResultWithNextResponse.class);
     assertThat(returned.ok()).isTrue();
     assertThat(returned.nextMemberId()).isEqualTo("m2");
 

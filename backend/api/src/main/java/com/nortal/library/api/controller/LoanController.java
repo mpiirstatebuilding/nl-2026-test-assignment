@@ -57,7 +57,8 @@ public class LoanController {
 
   @PostMapping("/extend")
   public ResultResponse extend(@RequestBody @Valid LoanExtensionRequest request) {
-    LibraryService.Result result = libraryService.extendLoan(request.bookId(), request.days());
+    LibraryService.Result result =
+        libraryService.extendLoan(request.bookId(), request.memberId(), request.days());
     return new ResultResponse(result.ok(), result.reason());
   }
 

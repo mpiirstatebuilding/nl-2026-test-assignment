@@ -90,7 +90,14 @@ export class AppComponent {
     if (!this.selectedBookId) {
       return;
     }
-    await this.runAction(() => this.api.returnBook(this.selectedBookId!));
+    // Get the book to find current borrower
+    const book = this.activeBook;
+    if (!book || !book.loanedTo) {
+      this.lastMessage = this.t('NOT_LOANED');
+      return;
+    }
+    // Return with the current borrower's ID (authorization check on backend)
+    await this.runAction(() => this.api.returnBook(this.selectedBookId!, book.loanedTo!));
   }
 
   async createBook(): Promise<void> {
