@@ -872,8 +872,105 @@ curl http://localhost:8080/v3/api-docs
 
 ---
 
+## Frontend Enhancements (Phase 9)
+
+### Overview
+
+Added user-facing features to improve library management UI without modifying backend code.
+
+**Key Additions**:
+- Due date display with overdue warnings
+- Loan extension from UI
+- Smart date formatting
+- Visual warning system
+
+### Implementation Details
+
+#### 1. Due Date Display
+
+**Smart Formatting System**:
+```typescript
+formatDueDate(dueDate: string | null): string {
+  if (!dueDate) return '';
+  const date = new Date(dueDate);
+  const today = new Date();
+  const diffDays = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) return `⚠️ Overdue by ${Math.abs(diffDays)} days`;
+  if (diffDays === 0) return '⚠️ Due today';
+  if (diffDays <= 3) return `⚠️ Due in ${diffDays} days`;
+  return `Due: ${date.toLocaleDateString('en-US', {...})}`;
+}
+```
+
+**Visual Design**:
+- Purple chip for normal due dates
+- Red chip with ⚠️ for overdue/soon-due books
+- Italic font for visual distinction
+- Positioned next to borrower information
+
+#### 2. Loan Extension UI
+
+**Button Integration**:
+- Added "Extend Loan" button to action panel
+- Only enabled when selected book is loaned to selected member
+- Prompts user for extension days (positive or negative)
+- Validates input (must be non-zero integer)
+
+**API Integration**:
+- Uses existing `/api/extend` endpoint
+- No backend modifications required
+- Authorization checked at both UI and backend
+
+**User Flow**:
+1. Select book loaned to member
+2. Select borrower as active member
+3. Click "Extend Loan" button
+4. Enter days (e.g., "7" to extend, "-3" to shorten)
+5. Receive success/error feedback
+
+### Files Modified (Frontend Only)
+
+**TypeScript Files** (2):
+- `library.service.ts` - Added dueDate field, extendLoan method
+- `app.component.ts` - Added formatDueDate, extendLoan methods
+
+**Template Files** (1):
+- `app.component.html` - Added due date chip, extend button
+
+**Style Files** (1):
+- `app.component.css` - Added .chip.due-date styles
+
+**i18n Files** (1):
+- `i18n.ts` - Added extendLoan translation
+
+**Dependency Updates**:
+- Prettier 3.1.1 → 3.4.2 (minor formatting improvements)
+
+### User Experience Improvements
+
+**Before**:
+- No visibility into book due dates
+- Had to use curl/Swagger to extend loans
+- No overdue warnings
+
+**After**:
+- Due dates visible at a glance
+- One-click loan extension
+- Visual warnings for overdue books
+- Clear feedback on actions
+
+### Verification
+
+**Backend Tests**: ✅ 58/58 passing (no backend changes)
+**API Surface**: ✅ 100% intact
+**New Dependencies**: ❌ None (uses existing endpoints)
+
+---
+
 **Last Updated**: December 25, 2025
-**Version**: 1.3
+**Version**: 1.4
 **Test Coverage**: 58/58 tests passing (100%)
 **API Contract Compliance**: ✅ **FIXED** - All violations resolved
 **API Documentation**: ✅ **Swagger UI** available
+**Frontend Features**: ✅ **Due dates** and **Loan extension** added

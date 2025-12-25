@@ -25,6 +25,7 @@ export const translations = {
     reserve: 'Reserve',
     cancelReservation: 'Cancel',
     return: 'Return',
+    extendLoan: 'Extend Loan',
     holder: 'Borrower',
     status: 'Status',
     loading: 'Loading...',

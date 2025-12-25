@@ -2,6 +2,7 @@ export interface Book {
   id: string;
   title: string;
   loanedTo: string | null;
+  dueDate: string | null;
   reservationQueue: string[];
 }
 
@@ -45,6 +46,10 @@ export class LibraryApiService {
 
   async returnBook(bookId: string, memberId: string): Promise<ActionResult> {
     return this.post('/return', { bookId, memberId });
+  }
+
+  async extendLoan(bookId: string, memberId: string, days: number): Promise<ActionResult> {
+    return this.post('/extend', { bookId, memberId, days: days.toString() });
   }
 
   async createBook(id: string, title: string): Promise<ActionResult> {

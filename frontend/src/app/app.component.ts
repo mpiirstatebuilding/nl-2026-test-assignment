@@ -100,6 +100,22 @@ export class AppComponent {
     await this.runAction(() => this.api.returnBook(this.selectedBookId!, this.selectedMemberId!));
   }
 
+  async extendLoan(): Promise<void> {
+    if (!this.selectedBookId || !this.selectedMemberId) {
+      return;
+    }
+    const daysInput = prompt('How many days to extend? (e.g., 7 for 7 days, -3 to shorten by 3 days)');
+    if (daysInput === null) return; // User cancelled
+
+    const days = parseInt(daysInput, 10);
+    if (isNaN(days) || days === 0) {
+      this.lastMessage = this.t('INVALID_EXTENSION');
+      return;
+    }
+
+    await this.runAction(() => this.api.extendLoan(this.selectedBookId!, this.selectedMemberId!, days));
+  }
+
   async createBook(): Promise<void> {
     if (!this.bookIdInput || !this.bookTitleInput) {
       this.lastMessage = this.t('INVALID_REQUEST');
@@ -200,6 +216,69 @@ export class AppComponent {
       return `${this.t('queueChip')}: ${book.reservationQueue.length}`;
     }
     return this.t('availableChip');
+  }
+
+  formatDueDate(dueDate: string | null): string {
+    if (!dueDate) return '';
+    const date = new Date(dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    date.setHours(0, 0, 0, 0);
+    const diffTime = date.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      return `⚠️ Overdue by ${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? '' : 's'}`;
+    } else if (diffDays === 0) {
+      return '⚠️ Due today';
+    } else if (diffDays <= 3) {
+      return `⚠️ Due in ${diffDays} day${diffDays === 1 ? '' : 's'}`;
+    } else {
+      return `Due: ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    }
+  }
+
+  canBorrow(): boolean {
+    if (!this.activeBook || !this.selectedMemberId) return false;
+    const book = this.activeBook;
+
+    // Can borrow if book is available (not loaned and no queue)
+    if (!book.loanedTo && book.reservationQueue.length === 0) return true;
+
+    // Or if member is at head of reservation queue
+    if (book.reservationQueue.length > 0 && book.reservationQueue[0] === this.selectedMemberId) {
+      return true;
+    }
+
+    return false;
+  }
+
+  canReserve(): boolean {
+    if (!this.activeBook || !this.selectedMemberId) return false;
+    const book = this.activeBook;
+
+    // Can't reserve if already borrowed by this member
+    if (book.loanedTo === this.selectedMemberId) return false;
+
+    // Can't reserve if already in reservation queue
+    if (book.reservationQueue.includes(this.selectedMemberId)) return false;
+
+    return true;
+  }
+
+  canCancelReservation(): boolean {
+    if (!this.activeBook || !this.selectedMemberId) return false;
+    return this.activeBook.reservationQueue.includes(this.selectedMemberId);
+  }
+
+  canReturn(): boolean {
+    if (!this.activeBook || !this.selectedMemberId) return false;
+    return this.activeBook.loanedTo === this.selectedMemberId;
+  }
+
+  canExtendLoan(): boolean {
+    if (!this.activeBook || !this.selectedMemberId) return false;
+    return this.activeBook.loanedTo === this.selectedMemberId;
   }
 
   onBookSelectionChange(id: string | null) {

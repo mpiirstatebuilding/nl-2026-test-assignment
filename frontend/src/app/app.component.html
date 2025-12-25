@@ -44,11 +44,16 @@
           <option *ngFor="let m of members" [value]="m.id">{{ m.id }} — {{ m.name }}</option>
         </select>
       </label>
-      <div class="actions">
-        <button (click)="borrow()" [disabled]="loading || !selectedBookId || !selectedMemberId || !apiAvailable">{{ t('borrow') }}</button>
-        <button class="secondary" (click)="reserve()" [disabled]="loading || !selectedBookId || !selectedMemberId || !apiAvailable">{{ t('reserve') }}</button>
-        <button class="ghost" (click)="cancelReservation()" [disabled]="loading || !selectedBookId || !selectedMemberId || !apiAvailable">{{ t('cancelReservation') }}</button>
-        <button class="ghost" (click)="returnBook()" [disabled]="loading || !selectedBookId || !apiAvailable">{{ t('return') }}</button>
+      <div class="actions-container">
+        <div class="actions actions-row-1">
+          <button *ngIf="canBorrow()" (click)="borrow()" [disabled]="loading || !apiAvailable">{{ t('borrow') }}</button>
+          <button *ngIf="canReserve()" class="secondary" (click)="reserve()" [disabled]="loading || !apiAvailable">{{ t('reserve') }}</button>
+          <button *ngIf="canCancelReservation()" class="ghost" (click)="cancelReservation()" [disabled]="loading || !apiAvailable">{{ t('cancelReservation') }}</button>
+        </div>
+        <div class="actions actions-row-2">
+          <button *ngIf="canReturn()" class="ghost" (click)="returnBook()" [disabled]="loading || !apiAvailable">{{ t('return') }}</button>
+          <button *ngIf="canExtendLoan()" class="ghost" (click)="extendLoan()" [disabled]="loading || !apiAvailable">{{ t('extendLoan') }}</button>
+        </div>
       </div>
     </div>
 
@@ -98,6 +103,7 @@
               <div class="chip-group">
                 <span class="chip" [class.warn]="!!b.loanedTo">{{ bookStatusLabel(b) }}</span>
                 <span class="chip outline" *ngIf="b.loanedTo">{{ t('holder') }}: {{ b.loanedTo }}</span>
+                <span class="chip due-date" *ngIf="b.loanedTo && b.dueDate" [class.overdue]="formatDueDate(b.dueDate).includes('⚠️')">{{ formatDueDate(b.dueDate) }}</span>
                 <button class="icon-btn" (click)="openBookModal('edit', b); $event.stopPropagation()" [disabled]="loading || !apiAvailable" title="{{ t('edit') }}">✎</button>
                 <button class="icon-btn danger" (click)="deleteBook(b.id); $event.stopPropagation()" [disabled]="loading || !apiAvailable" title="{{ t('delete') }}">✕</button>
               </div>

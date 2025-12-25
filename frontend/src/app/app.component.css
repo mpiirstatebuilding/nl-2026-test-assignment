@@ -141,10 +141,21 @@
   border-color: var(--accent);
 }
 
+.actions-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .actions {
   display: flex;
   gap: 8px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+}
+
+.actions-row-1,
+.actions-row-2 {
+  min-height: 42px;
 }
 
 button {
@@ -348,6 +359,21 @@ button.danger {
 .chip.outline {
   background: transparent;
   border-color: rgba(255, 255, 255, 0.2);
+}
+
+.chip.due-date {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.4);
+  color: #c084fc;
+  font-style: italic;
+  font-size: 11px;
+}
+
+.chip.due-date.overdue {
+  background: rgba(248, 113, 113, 0.15);
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fca5a5;
+  font-weight: 500;
 }
 
 .row {
