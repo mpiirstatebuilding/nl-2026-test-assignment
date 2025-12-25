@@ -1,0 +1,9 @@
+# Test profile - disable security for integration tests
+library:
+  security:
+    enforce: false
+  cors:
+    allowed-origins: ["*"]
+    allowed-methods: ["*"]
+    allowed-headers: ["*"]
+    allow-credentials: true

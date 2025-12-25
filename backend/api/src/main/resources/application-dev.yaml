@@ -1,0 +1,22 @@
+# Development profile overrides - disable security for local testing
+library:
+  security:
+    enforce: false
+  cors:
+    allowed-origins:
+      - "*"  # Permissive CORS for development
+    allowed-methods:
+      - "*"
+    allowed-headers:
+      - "*"
+    allow-credentials: true
+
+spring:
+  h2:
+    console:
+      enabled: true  # Enable H2 console in development
+
+logging:
+  level:
+    com.nortal.library: DEBUG
+    org.springframework.security: DEBUG

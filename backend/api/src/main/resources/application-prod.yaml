@@ -1,0 +1,30 @@
+# Production profile - security enabled
+library:
+  security:
+    enforce: true  # SECURITY ENABLED for production
+  cors:
+    allowed-origins:
+      - "https://library.example.com"  # Replace with actual production domain
+    allowed-methods:
+      - "GET"
+      - "POST"
+      - "DELETE"
+      - "OPTIONS"
+    allowed-headers:
+      - "Authorization"
+      - "Content-Type"
+    allow-credentials: true
+
+spring:
+  h2:
+    console:
+      enabled: false  # Disable H2 console in production
+  jpa:
+    hibernate:
+      ddl-auto: validate  # Use Flyway/Liquibase for migrations in production
+    open-in-view: false
+
+logging:
+  level:
+    com.nortal.library: INFO
+    org.springframework.security: WARN
