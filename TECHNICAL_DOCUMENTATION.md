@@ -29,6 +29,7 @@
 ### Key Business Constants
 - `MAX_LOANS = 5` - Maximum books per member
 - `DEFAULT_LOAN_DAYS = 14` - Standard loan period
+- `MAX_EXTENSION_DAYS = 90` - Maximum total extension from first due date (approximately 3 months)
 
 ### Module Structure
 ```
@@ -71,8 +72,9 @@ backend/
 | **Security** | Authorization checks | Prevent unauthorized actions |
 | **Data Integrity** | Delete operation safeguards | Prevent orphaned data |
 | **Duplicate Prevention** | ID validation + modal error UX | Prevent data corruption + excellent UX |
+| **Extension Limits** | 90-day maximum extension tracking | Prevent indefinite book retention |
 | **Documentation** | JavaDoc + Swagger | API consumer support |
-| **Testing** | 38 test cases | Ensure correctness |
+| **Testing** | 43 test cases | Ensure correctness |
 | **Frontend** | Modal error banners + UI improvements | Professional user experience |
 
 ---
@@ -106,6 +108,7 @@ class Book {
   String title;                 // Book title
   String loanedTo;             // Current borrower (null = available)
   LocalDate dueDate;           // Loan expiration (null = available)
+  LocalDate firstDueDate;      // Original due date (for extension limits, internal only)
   List<String> reservationQueue; // FIFO queue of member IDs
 }
 ```
@@ -246,7 +249,43 @@ entity.getReservationQueue().add(memberId);
 return bookRepository.countByLoanedTo(memberId) < MAX_LOANS;
 ```
 
-#### 6. deleteBook(id) / deleteMember(id) - Additional
+#### 6. extendLoan(bookId, memberId, days) - Lines 322-361
+
+**Extension Limits (Production Enhancement)**:
+- ✅ Tracks original due date (`firstDueDate`) to prevent indefinite extensions
+- ✅ Enforces 90-day maximum extension from first due date
+- ✅ Only current borrower can extend their loan
+- ✅ Cannot extend if book has reservations (others waiting)
+
+**Implementation**:
+```java
+// Set firstDueDate when book is first borrowed
+entity.setFirstDueDate(LocalDate.now().plusDays(DEFAULT_LOAN_DAYS));
+
+// When extending, validate against limit
+LocalDate newDueDate = baseDate.plusDays(days);
+long totalDaysFromFirst = ChronoUnit.DAYS.between(entity.getFirstDueDate(), newDueDate);
+
+if (totalDaysFromFirst > MAX_EXTENSION_DAYS) {
+  return Result.failure("MAX_EXTENSION_REACHED");
+}
+```
+
+**Lifecycle Management**:
+- **On Borrow**: `firstDueDate` = `dueDate` = today + 14 days
+- **On Extension**: `dueDate` changes, `firstDueDate` stays as anchor
+- **On Return**: Both `dueDate` and `firstDueDate` are cleared
+- **On Handoff**: `firstDueDate` reset for new borrower
+
+**Example Flow**:
+1. Member borrows book on Jan 1 → `dueDate = Jan 15`, `firstDueDate = Jan 15`
+2. Member extends by 30 days → `dueDate = Feb 14`, `firstDueDate = Jan 15` (unchanged)
+3. Member extends by 50 days → `dueDate = Apr 5`, `firstDueDate = Jan 15` (total 80 days)
+4. Member tries +20 days → **REJECTED** (would be 100 days, exceeds 90-day limit)
+
+**Note**: `firstDueDate` is internal only and not exposed through API responses.
+
+#### 7. deleteBook(id) / deleteMember(id) - Additional
 
 **Data Integrity Safeguards**:
 - ✅ Cannot delete loaned books
@@ -310,7 +349,9 @@ long count = bookRepository.countByLoanedTo(memberId);
 
 - Non-null validation for create/update operations
 - Zero-day extension prevention in `extendLoan()`
+- Extension limit validation (90 days from first due date)
 - Member/book existence checks before operations
+- Duplicate ID prevention for create operations
 
 ---
 
@@ -341,9 +382,9 @@ long count = bookRepository.countByLoanedTo(memberId);
 
 | Test Suite | Tests | Coverage |
 |------------|-------|----------|
-| **Unit Tests** (`LibraryServiceTest.java`) | 21 | Business logic |
+| **Unit Tests** (`LibraryServiceTest.java`) | 28 | Business logic + extension limits |
 | **Integration Tests** (`ApiIntegrationTest.java`) | 15 | API + database |
-| **Total** | **36** | **Comprehensive** |
+| **Total** | **43** | **Comprehensive** |
 
 ### Key Test Scenarios
 
@@ -356,6 +397,8 @@ long count = bookRepository.countByLoanedTo(memberId);
 - ✅ Duplicate reservation rejection
 - ✅ Borrow limit enforcement
 - ✅ Delete data integrity
+- ✅ Duplicate ID prevention
+- ✅ Extension limit enforcement (90 days)
 
 **Security Tests**:
 - Authorization bypass prevention
@@ -527,8 +570,9 @@ GET    /api/overdue                # List overdue books
 ### Testing
 - All business logic must have unit tests
 - Integration tests for API endpoints
-- Test coverage: 38 tests (23 unit + 15 integration)
+- Test coverage: 43 tests (28 unit + 15 integration)
 - All tests passing before commit
+- Boundary testing for extension limits and borrow limits
 
 ---
 
@@ -542,12 +586,13 @@ GET    /api/overdue                # List overdue books
 
 ### Suggested Improvements
 1. Add optimistic locking (@Version) for concurrent modifications
-2. Implement max extension limits
+2. ~~Implement max extension limits~~ ✅ **COMPLETED** (90-day limit enforced)
 3. Add notification system for handoff events
 4. Enhanced audit logging
+5. Frontend UI for overdue books and member summary views
 
 ---
 
-**Document Version**: 1.0
+**Document Version**: 1.1
 **Last Updated**: December 26, 2025
-**Status**: Production-ready with all assignment requirements implemented
+**Status**: Production-ready with all assignment requirements implemented + 2 additional enhancements (Duplicate ID Prevention + Loan Extension Limits)

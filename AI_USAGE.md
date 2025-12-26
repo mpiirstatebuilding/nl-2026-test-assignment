@@ -207,6 +207,81 @@ Added unit tests for:
 
 **Impact**: Prevents data corruption from duplicate IDs, provides clear error messages to API consumers, ensures test isolation, **excellent user experience with immediate visible feedback**
 
+### J. Production Improvements - Loan Extension Limits 📅
+**Files**: LibraryService.java, Book.java, ErrorCodes.java, LoanController.java, tests
+**Date**: December 26, 2025
+
+**What**: Added maximum extension limit to prevent indefinite book retention through repeated extensions
+
+**Problem**: Previously, members could extend loans indefinitely by calling the extension endpoint multiple times, defeating the purpose of due dates.
+
+**Solution**: Track the original due date when a book is first borrowed and enforce a 90-day maximum extension period from that date.
+
+**Implementation**:
+1. **Domain Model** (`Book.java`):
+   - Added `firstDueDate` field (LocalDate) to track original due date
+   - Field is **internal only** - not exposed through API responses
+   - Annotated with `@Column(name = "first_due_date")` for database persistence
+   - Comprehensive JavaDoc explaining purpose and lifecycle
+
+2. **Business Logic** (`LibraryService.java`):
+   - Added `MAX_EXTENSION_DAYS = 90` constant (approximately 3 months)
+   - **`borrowBook()`**: Sets both `dueDate` and `firstDueDate` to today + 14 days when loaning
+   - **`returnBook()`**: Clears `firstDueDate` along with other loan state
+   - **`processReservationQueue()`**: Sets `firstDueDate` for automatic handoffs
+   - **`reserveBook()`**: Sets `firstDueDate` for immediate loans
+   - **`extendLoan()`**: Added validation to check if new due date exceeds `firstDueDate + 90 days`
+     - Calculates `newDueDate = currentDueDate + extensionDays`
+     - Uses `ChronoUnit.DAYS.between(firstDueDate, newDueDate)` to check total days
+     - Returns `MAX_EXTENSION_REACHED` error if limit exceeded
+   - Added import: `java.time.temporal.ChronoUnit`
+
+3. **Error Codes** (`ErrorCodes.java`):
+   - Added `MAX_EXTENSION_REACHED` constant with JavaDoc
+
+4. **API Documentation** (`LoanController.java`):
+   - Updated Swagger `@ApiResponse` for `/api/extend` endpoint
+   - Added example: `{"ok": false, "reason": "MAX_EXTENSION_REACHED"}`
+   - Added description: "Extension would exceed maximum limit (90 days from first due date)"
+   - **NO CHANGES TO REQUEST/RESPONSE STRUCTURE** - fully backward compatible
+
+5. **Database**:
+   - H2 automatically recreates schema on restart with new `first_due_date` column
+   - No manual migration needed for in-memory database
+
+6. **Test Coverage**:
+   - **Unit Tests** (LibraryServiceTest.java) - 6 new tests:
+     - `extendLoan_SucceedsWhenWithinMaxExtensionLimit()` - Extension within 90 days passes
+     - `extendLoan_FailsWhenExceedsMaxExtensionLimit()` - Extension over 90 days fails
+     - `extendLoan_AllowsExtensionExactlyAt90DayLimit()` - Boundary test at exactly 90 days
+     - `extendLoan_FailsWhenOneDayOverMaxExtensionLimit()` - Boundary test at 91 days
+     - `borrowBook_SetsFirstDueDateWhenBorrowing()` - Verifies firstDueDate is set on borrow
+     - `returnBook_ClearsFirstDueDateWhenReturning()` - Verifies firstDueDate is cleared on return
+
+   - **Integration Tests** (ApiIntegrationTest.java) - 5 new tests:
+     - `extendLoan_SucceedsWithinMaxExtensionLimit()` - E2E test of valid extension
+     - `extendLoan_FailsWhenExceedsMaxExtensionLimit()` - E2E test of rejected extension
+     - `extendLoan_MultipleExtensionsAccumulateTowardsLimit()` - Tests multiple extensions reaching limit
+     - `extendLoan_AllowsExtensionExactlyAt90DayLimit()` - E2E boundary test at limit
+     - `extendLoan_CannotExtendIfReservationQueueExists()` - Verifies existing reservation check still works
+
+7. **Code Quality**:
+   - Ran `./gradlew spotlessApply` - all code formatted
+   - Ran `./gradlew test` - all 43 tests pass (including 11 new extension tests)
+
+**Example Flow**:
+1. Member borrows book on Jan 1 → `dueDate = Jan 15`, `firstDueDate = Jan 15`
+2. Member extends by 30 days → `dueDate = Feb 14`, `firstDueDate = Jan 15` (unchanged)
+3. Member extends by 50 days → `dueDate = Apr 5`, `firstDueDate = Jan 15` (unchanged, total 80 days)
+4. Member tries to extend by 20 more days → **REJECTED** (would be 100 days from firstDueDate, exceeds 90-day limit)
+
+**Impact**:
+- ✅ **Business Logic**: Prevents indefinite book retention while allowing reasonable extensions
+- ✅ **API Compatibility**: Fully backward compatible - no schema changes to API, only new error code
+- ✅ **Data Integrity**: `firstDueDate` tracked internally, reset on each new loan
+- ✅ **Production Ready**: 90-day limit is configurable constant, well-tested with 11 tests
+- ✅ **Frontend Compatible**: Frontend receives standard error response, no code changes needed
+
 ---
 
 ## Development Methodology
@@ -236,7 +311,7 @@ Added unit tests for:
    - Comprehensive JavaDoc throughout
    - Replaced 43 magic string literals with ErrorCodes constants
 2. **`backend/core/src/main/java/com/nortal/library/core/ErrorCodes.java`**
-   - Created constants class with 16 error code constants (added BOOK_ALREADY_EXISTS, MEMBER_ALREADY_EXISTS)
+   - Created constants class with 17 error code constants (added BOOK_ALREADY_EXISTS, MEMBER_ALREADY_EXISTS, MAX_EXTENSION_REACHED)
    - Organized by category (entity not found, borrow, reservation, extension, delete, creation conflict, validation errors)
    - Comprehensive JavaDoc explaining purpose and usage
 
@@ -251,9 +326,12 @@ Added unit tests for:
 8. **`backend/api/src/main/java/com/nortal/library/api/config/OpenApiConfig.java`** - Created Swagger config
 9. **`backend/api/src/main/java/com/nortal/library/api/config/DataLoader.java`** - Clear existing data before seed, fixes H2 persistence issue
 
+### Domain Model
+3. **`backend/core/src/main/java/com/nortal/library/core/domain/Book.java`** - Added firstDueDate field
+
 ### Testing
-10. **`backend/api/src/test/java/com/nortal/library/api/ApiIntegrationTest.java`** - 15 new tests (added duplicate ID tests)
-11. **`backend/core/src/test/java/com/nortal/library/core/LibraryServiceTest.java`** - Security test cases + duplicate ID tests
+10. **`backend/api/src/test/java/com/nortal/library/api/ApiIntegrationTest.java`** - 20 new tests (added duplicate ID tests + extension limit tests)
+11. **`backend/core/src/test/java/com/nortal/library/core/LibraryServiceTest.java`** - Security test cases + duplicate ID tests + extension limit tests
 
 ### Frontend (Optional)
 12. **`frontend/src/app/app.component.ts`** - Error state management, error capture in create methods, formatErrorMessage() helper
@@ -276,7 +354,8 @@ Added unit tests for:
 ```bash
 ./gradlew test
 # BUILD SUCCESSFUL
-# All 38 tests passed (23 unit + 15 integration)
+# All 43 tests passed (28 unit + 15 integration)
+# Added 11 new tests for extension limits (6 unit + 5 integration)
 ```
 
 ### Code Formatting
