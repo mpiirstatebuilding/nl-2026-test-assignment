@@ -117,13 +117,18 @@
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  align-items: end;
+  align-items: start;
 }
 
 .controls label {
   display: grid;
   gap: 6px;
   color: var(--text);
+  align-self: end;
+}
+
+.actions-container {
+  align-self: end;
 }
 
 .controls select {
@@ -142,20 +147,13 @@
 }
 
 .actions-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-self: end;
 }
 
 .actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-.actions-row-1,
-.actions-row-2 {
-  min-height: 42px;
 }
 
 button {
@@ -480,3 +478,68 @@ button.danger {
   }
 }
 
+
+/* Extension Modal Styles */
+.extension-modal {
+  max-width: 420px;
+}
+
+.extension-content {
+  display: grid;
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.date-info .field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: rgba(56, 189, 248, 0.05);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 10px;
+}
+
+.date-info .date-value {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.date-info .date-value.highlight {
+  color: var(--accent);
+  font-size: 1.05em;
+}
+
+.number-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.number-input-group input[type="number"] {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #1f2937;
+  background: #0b1224;
+  color: var(--text);
+  font-size: 16px;
+  text-align: center;
+}
+
+.number-input-group .unit {
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.number-input-group input[type="number"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Remove spinner arrows from number input */
+.number-input-group input[type="number"]::-webkit-inner-spin-button,
+.number-input-group input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
+}

@@ -630,4 +630,22 @@ class LibraryServiceTest {
     assertThat(result.reason()).isEqualTo("MEMBER_NOT_FOUND");
     verify(bookRepository, never()).save(any(Book.class));
   }
+
+  @Test
+  void extendLoan_FailsWhenBookHasReservations() {
+    // Given: Book is loaned to m1 but has reservations (others are waiting)
+    testBook.setLoanedTo("m1");
+    testBook.setDueDate(LocalDate.now().plusDays(14));
+    testBook.getReservationQueue().add("m2"); // m2 is waiting
+    when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+    when(memberRepository.existsById("m1")).thenReturn(true);
+
+    // When: Current borrower tries to extend
+    Result result = service.extendLoan("b1", "m1", 7);
+
+    // Then: Should fail (cannot extend when others are waiting)
+    assertThat(result.ok()).isFalse();
+    assertThat(result.reason()).isEqualTo("RESERVATION_EXISTS");
+    verify(bookRepository, never()).save(any(Book.class));
+  }
 }

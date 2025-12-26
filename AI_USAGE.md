@@ -1960,3 +1960,547 @@ canExtendLoan(): boolean {
 
 ---
 
+
+## Phase 11: Advanced UX - Extension Modal & Restrictions (Dec 25, 2025)
+
+### 1. Objective
+
+Complete Phase 3 of the implementation plan:
+- Fix button vertical alignment issues
+- Replace prompt-based extension with professional modal dialog
+- Add extension validation (1-90 day range)
+- Implement business rule: cannot extend if book has reservations
+- Maintain 100% API compatibility
+
+### 2. Implementation Details
+
+#### 2.1 Button Alignment Fix (Partial)
+
+**Changes Made**:
+```css
+.controls {
+  align-items: start; /* Changed from 'end' */
+}
+
+.controls label {
+  align-self: end; /* Align labels to bottom */
+}
+
+.actions-container {
+  align-self: end; /* Align actions to bottom */
+}
+```
+
+**Status**: ⚠️ Partial fix - some buttons still misaligned (see Known Issues below)
+
+#### 2.2 Reservation Extension Restriction
+
+**Frontend** (`app.component.ts`):
+```typescript
+canExtendLoan(): boolean {
+  if (!this.activeBook || !this.selectedMemberId) return false;
+
+  // Can only extend if you're the borrower
+  if (this.activeBook.loanedTo !== this.selectedMemberId) return false;
+
+  // Cannot extend if book has reservations (others are waiting)
+  if (this.activeBook.reservationQueue.length > 0) return false;
+
+  return true;
+}
+```
+
+**Backend** (`LibraryService.java`):
+```java
+// Cannot extend if book has reservations (others are waiting)
+if (!entity.getReservationQueue().isEmpty()) {
+  return Result.failure("RESERVATION_EXISTS");
+}
+```
+
+**Benefits**:
+- Fair access: prevents indefinite hoarding when others are waiting
+- Encourages timely returns for high-demand books
+- Clear error message to user
+
+#### 2.3 Professional Extension Modal (Option C)
+
+**Component State** (`app.component.ts`):
+```typescript
+extensionModalOpen = false;
+extensionDays = 7;
+readonly MIN_EXTENSION_DAYS = 1;
+readonly MAX_EXTENSION_DAYS = 90;
+```
+
+**Modal Methods**:
+```typescript
+openExtensionModal(): void {
+  if (!this.selectedBookId || !this.selectedMemberId) return;
+  this.extensionDays = 7; // Reset to default
+  this.extensionModalOpen = true;
+}
+
+closeExtensionModal(): void {
+  this.extensionModalOpen = false;
+  this.extensionDays = 7;
+}
+
+async submitExtensionModal(): Promise<void> {
+  if (this.extensionDays < this.MIN_EXTENSION_DAYS || 
+      this.extensionDays > this.MAX_EXTENSION_DAYS) {
+    this.lastMessage = `Extension must be between ${this.MIN_EXTENSION_DAYS} and ${this.MAX_EXTENSION_DAYS} days`;
+    return;
+  }
+
+  await this.runAction(() =>
+    this.api.extendLoan(this.selectedBookId!, this.selectedMemberId!, this.extensionDays)
+  );
+  this.closeExtensionModal();
+}
+```
+
+**Due Date Preview**:
+```typescript
+get currentDueDate(): string | null {
+  return this.activeBook?.dueDate || null;
+}
+
+get newDueDate(): string | null {
+  if (!this.currentDueDate) return null;
+  const current = new Date(this.currentDueDate);
+  const newDate = new Date(current);
+  newDate.setDate(current.getDate() + this.extensionDays);
+  return newDate.toLocaleDateString('en-US', { 
+    month: 'short', day: 'numeric', year: 'numeric' 
+  });
+}
+```
+
+**HTML Template**:
+```html
+<div class="modal-backdrop" *ngIf="extensionModalOpen">
+  <div class="modal card extension-modal">
+    <div class="card__header">
+      <h3>{{ t('extendLoan') }} for "{{ activeBook?.title }}"</h3>
+      <button class="icon-btn" (click)="closeExtensionModal()">✕</button>
+    </div>
+    <div class="extension-content">
+      <!-- Current due date -->
+      <div class="date-info">
+        <label class="field">
+          <span class="muted">{{ t('currentDue') }}</span>
+          <span class="date-value">{{ currentDueDate ? formatDueDate(currentDueDate) : 'N/A' }}</span>
+        </label>
+      </div>
+      
+      <!-- Extension input -->
+      <label class="field">
+        <span>{{ t('extendBy') }}</span>
+        <div class="number-input-group">
+          <input type="number"
+                 [(ngModel)]="extensionDays"
+                 [min]="MIN_EXTENSION_DAYS"
+                 [max]="MAX_EXTENSION_DAYS"
+                 step="1" />
+          <span class="unit">days</span>
+        </div>
+      </label>
+      
+      <!-- New due date preview -->
+      <div class="date-info">
+        <label class="field">
+          <span class="muted">{{ t('newDue') }}</span>
+          <span class="date-value highlight">{{ newDueDate || 'N/A' }}</span>
+        </label>
+      </div>
+    </div>
+    <div class="actions split">
+      <button (click)="submitExtensionModal()" 
+              [disabled]="loading || extensionDays < MIN_EXTENSION_DAYS || extensionDays > MAX_EXTENSION_DAYS">
+        {{ t('extendLoan') }}
+      </button>
+      <button class="secondary" (click)="closeExtensionModal()">{{ t('cancelAction') }}</button>
+    </div>
+  </div>
+</div>
+```
+
+**CSS Styling**:
+```css
+.extension-modal {
+  max-width: 420px;
+}
+
+.extension-content {
+  display: grid;
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.date-info .field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: rgba(56, 189, 248, 0.05);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 10px;
+}
+
+.date-info .date-value.highlight {
+  color: var(--accent);
+  font-size: 1.05em;
+}
+
+.number-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.number-input-group input[type="number"] {
+  flex: 1;
+  text-align: center;
+}
+```
+
+### 3. Files Modified
+
+**Backend Files** (2):
+1. `backend/core/.../LibraryService.java`
+   - Added reservation queue check in `extendLoan()` method
+   - Returns `RESERVATION_EXISTS` error when book has reservations
+
+2. `backend/core/.../LibraryServiceTest.java`
+   - Added `extendLoan_FailsWhenBookHasReservations()` test
+   - Verifies business rule enforcement
+
+**Frontend Files** (4):
+1. `frontend/src/app/app.component.ts`
+   - Changed `MIN/MAX_EXTENSION_DAYS` from `private readonly` to `readonly` (Angular template access)
+   - Added modal state: `extensionModalOpen`, `extensionDays`
+   - Replaced `extendLoan()` with `openExtensionModal()`, `closeExtensionModal()`, `submitExtensionModal()`
+   - Added computed properties: `currentDueDate`, `newDueDate`
+   - Updated `canExtendLoan()` to check reservation queue
+
+2. `frontend/src/app/app.component.html`
+   - Changed Extend button to call `openExtensionModal()`
+   - Added extension modal HTML structure
+   - Shows current/new due dates with preview
+
+3. `frontend/src/app/app.component.css`
+   - Changed `.controls` alignment from `end` to `start`
+   - Added `.actions-container { align-self: end; }`
+   - Added `.controls label { align-self: end; }`
+   - Added extension modal styles (`.extension-modal`, `.extension-content`, `.date-info`, etc.)
+
+4. `frontend/src/app/i18n.ts`
+   - Added `RESERVATION_EXISTS: 'Cannot extend: others are waiting for this book'`
+   - Added `currentDue: 'Current due date'`
+   - Added `extendBy: 'Extend by'`
+   - Added `newDue: 'New due date'`
+
+### 4. Test Results
+
+**Backend Tests**: ✅ 59/59 passing (added 1 new test)
+
+**Test Breakdown**:
+- `LibraryServiceTest`: 35 tests (was 34, added reservation extension test)
+- `ApiIntegrationTest`: 24 tests
+
+**New Test**:
+```java
+@Test
+void extendLoan_FailsWhenBookHasReservations() {
+  // Given: Book is loaned to m1 but has reservations (others are waiting)
+  testBook.setLoanedTo("m1");
+  testBook.setDueDate(LocalDate.now().plusDays(14));
+  testBook.getReservationQueue().add("m2"); // m2 is waiting
+  when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+  when(memberRepository.existsById("m1")).thenReturn(true);
+
+  // When: Current borrower tries to extend
+  Result result = service.extendLoan("b1", "m1", 7);
+
+  // Then: Should fail (cannot extend when others are waiting)
+  assertThat(result.ok()).isFalse();
+  assertThat(result.reason()).isEqualTo("RESERVATION_EXISTS");
+  verify(bookRepository, never()).save(any(Book.class));
+}
+```
+
+### 5. User Experience Improvements
+
+**Before Phase 11**:
+- Browser `prompt()` for extension input (poor UX)
+- No validation on input
+- No preview of new due date
+- Could extend even with reservations
+- Button alignment issues
+
+**After Phase 11**:
+- Professional modal dialog matching app design
+- Real-time new due date preview
+- HTML5 number input with min/max validation
+- Clear current → new due date transition
+- Extension blocked when others waiting
+- Improved button alignment (partial)
+
+**Extension Flow**:
+1. User clicks "Extend Loan" (only visible if they're the borrower and no reservations)
+2. Modal opens with:
+   - Book title in header
+   - Current due date (formatted with overdue warnings)
+   - Number input (default: 7 days, range: 1-90)
+   - New due date preview (auto-calculates)
+3. User adjusts days via:
+   - Direct input
+   - Up/down arrows
+   - Keyboard
+4. Submit button disabled if out of range
+5. On submit: API call → modal closes → refresh → success/error message
+
+### 6. API Surface Verification
+
+**Changes Made**:
+- ✅ New error code: `RESERVATION_EXISTS` (backward compatible)
+- ✅ No DTO changes
+- ✅ No endpoint modifications
+- ✅ No new required fields
+
+**API Compatibility**: 100% maintained
+
+### 7. Known Issues (Identified in Testing)
+
+#### Issue 1: Button Alignment Still Imperfect
+**Symptom**: Some buttons (Borrow/Reserve) render higher than others (Return/Extend)
+**Cause**: CSS alignment fix was partial
+**Impact**: Visual inconsistency
+**Status**: ⚠️ Needs further investigation
+**Proposed Fix**: Adjust grid alignment or use flexbox with consistent baseline
+
+#### Issue 2: Extension Limit Can Be Bypassed
+**Symptom**: 90-day limit enforced per modal session, but user can reopen modal and extend again
+**Example**: 
+- Initial due date: Jan 1
+- Extend by 90 days → Apr 1
+- Reopen modal, extend by 90 days again → Jun 30
+- Total extension: 180 days (exceeds intended 3-month limit)
+
+**Root Cause**: Limit is per-extension, not total from original due date
+**Impact**: Users can indefinitely extend loans by repeated extensions
+**Business Rule Violation**: Should enforce max 3 months from **initial** due date
+
+**Proposed Fix**:
+```typescript
+// Track original due date when book is first loaned
+interface Book {
+  dueDate: string | null;
+  originalDueDate?: string | null; // NEW: set when book is loaned
+}
+
+// Validation logic
+get maxAllowedExtension(): number {
+  if (!this.currentDueDate || !this.activeBook?.originalDueDate) {
+    return this.MAX_EXTENSION_DAYS;
+  }
+  const original = new Date(this.activeBook.originalDueDate);
+  const current = new Date(this.currentDueDate);
+  const maxDate = new Date(original);
+  maxDate.setMonth(original.getMonth() + 3); // 3 months from original
+  
+  const remainingMs = maxDate.getTime() - current.getTime();
+  const remainingDays = Math.floor(remainingMs / (1000 * 60 * 60 * 24));
+  
+  return Math.max(1, Math.min(remainingDays, this.MAX_EXTENSION_DAYS));
+}
+```
+
+**Status**: ⏳ Deferred to Phase 4 (requires backend changes to track original due date)
+
+### Summary of Changes
+
+**Files Modified**: 6 (2 backend, 4 frontend)
+**Tests Added**: 1 (reservation extension restriction)
+**Total Tests**: 59/59 passing (100%)
+**Lines of Code**: ~150 lines added
+**New Error Codes**: 1 (`RESERVATION_EXISTS`)
+**New i18n Keys**: 4
+
+**Key Achievements**:
+- ✅ Professional extension modal with due date preview
+- ✅ Input validation (1-90 days, HTML5 number input)
+- ✅ Reservation restriction (fair access enforcement)
+- ✅ Real-time new due date calculation
+- ✅ Improved button alignment (partial)
+- ✅ All backend tests passing
+- ✅ API surface 100% intact
+
+**Estimated Time**: 90 minutes of implementation
+
+**Impact**:
+- Significantly improved extension UX
+- Better visual feedback (before/after due dates)
+- Fairer system (can't extend when others waiting)
+- Professional UI polish
+- Minor button alignment issue remaining
+- Extension limit bypass issue identified (needs Phase 4 fix)
+
+---
+
+## Phase 12: Button Alignment Fix (December 25, 2025)
+
+**Objective**: Fix button vertical alignment issue identified in Phase 11 testing
+
+**Duration**: 5 minutes
+
+### 1. Problem Analysis
+
+**User Report**: "The buttons still aren't appearing on the same level with some being rendered higher than others."
+
+**Root Cause Identified by User**:
+- Phase 10 implementation created a two-row button layout:
+  - `actions-row-1`: Borrow, Reserve, Cancel Reservation
+  - `actions-row-2`: Return, Extend Loan
+- These rows were stacked vertically within `.actions-container`
+- This caused buttons to appear at different vertical positions relative to dropdowns
+
+**Why Previous Fix Didn't Work**:
+- Phase 11 attempted to fix with CSS grid alignment (`align-items: start`, `align-self: end`)
+- Problem was structural, not CSS alignment
+- Grid items with different internal structures (labels vs buttons) created inherent height mismatches
+- Two-row layout was the fundamental issue
+
+### 2. Solution
+
+**Simple Fix**: Remove the two-row structure and merge all buttons into a single flex container.
+
+**HTML Changes** (`frontend/src/app/app.component.html`):
+
+**Before**:
+```html
+<div class="actions-container">
+  <div class="actions actions-row-1">
+    <button *ngIf="canBorrow()">Borrow</button>
+    <button *ngIf="canReserve()">Reserve</button>
+    <button *ngIf="canCancelReservation()">Cancel</button>
+  </div>
+  <div class="actions actions-row-2">
+    <button *ngIf="canReturn()">Return</button>
+    <button *ngIf="canExtendLoan()">Extend Loan</button>
+  </div>
+</div>
+```
+
+**After**:
+```html
+<div class="actions-container">
+  <div class="actions">
+    <button *ngIf="canBorrow()">Borrow</button>
+    <button *ngIf="canReserve()">Reserve</button>
+    <button *ngIf="canCancelReservation()">Cancel</button>
+    <button *ngIf="canReturn()">Return</button>
+    <button *ngIf="canExtendLoan()">Extend Loan</button>
+  </div>
+</div>
+```
+
+**CSS Changes** (`frontend/src/app/app.component.css`):
+
+**Before**:
+```css
+.actions-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.actions-row-1,
+.actions-row-2 {
+  min-height: 42px;
+}
+```
+
+**After**:
+```css
+.actions-container {
+  align-self: end;  /* Align container to bottom of grid cell */
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;  /* Buttons wrap naturally if space is tight */
+}
+```
+
+### 3. Why This Works
+
+**Single Baseline**:
+- All buttons now in same flex container
+- No vertical stacking between button groups
+- All buttons share the same horizontal baseline
+
+**Alignment**:
+- `.actions-container` with `align-self: end` aligns the entire button group to the bottom of the grid cell
+- This matches the alignment of the `<select>` dropdowns (which are also at the bottom of their labels)
+- Result: dropdowns and buttons align horizontally
+
+**Responsive Behavior**:
+- `flex-wrap: wrap` maintains responsive behavior
+- If buttons don't fit, they wrap naturally to next line
+- No forced two-row layout
+
+### 4. Testing & Verification
+
+**Manual Testing**: ✅
+- Buttons now align horizontally with dropdowns
+- No vertical offset between Borrow/Reserve and Return/Extend
+- All buttons appear on same baseline
+- Wrapping works correctly on smaller screens
+
+**Visual Regression**: ✅
+- No layout breakage on other components
+- Existing styling preserved
+- Modal dialogs unaffected
+
+**Backend Tests**: Not applicable (frontend-only change)
+
+### 5. Lessons Learned
+
+**Overcomplicated Initial Design**:
+- Phase 10 two-row layout was well-intentioned (grouping acquisition vs management actions)
+- But it created a visual alignment problem
+- Simpler single-row design is both cleaner and more functional
+
+**Root Cause Analysis Importance**:
+- Phase 11 attempted CSS fixes without addressing structural issue
+- User identified the root cause immediately: two rows causing stacking
+- Simple HTML restructure was the correct solution, not complex CSS
+
+**User Feedback Value**:
+- User's direct observation ("two rows within the actions-container div") cut through complexity
+- Sometimes the simplest explanation is the correct one
+
+### Summary of Changes
+
+**Files Modified**: 2 (frontend only)
+- `frontend/src/app/app.component.html` - Merged button rows
+- `frontend/src/app/app.component.css` - Simplified CSS
+
+**Lines Changed**: ~15 lines
+**Tests**: No new tests (visual fix)
+**Backend Impact**: None
+**API Impact**: None
+
+**Result**: ✅ Button alignment issue **fully resolved**
+
+---
+

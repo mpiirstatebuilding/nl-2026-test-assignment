@@ -26,6 +26,9 @@ export const translations = {
     cancelReservation: 'Cancel',
     return: 'Return',
     extendLoan: 'Extend Loan',
+    currentDue: 'Current due date',
+    extendBy: 'Extend by',
+    newDue: 'New due date',
     holder: 'Borrower',
     status: 'Status',
     loading: 'Loading...',
@@ -67,6 +70,7 @@ export const translations = {
     BOOK_IN_USE: 'Book cannot be deleted while loaned',
     NOT_RESERVED: 'Reservation not found',
     NOT_LOANED: 'Book is not currently loaned',
+    RESERVATION_EXISTS: 'Cannot extend: others are waiting for this book',
   },
 };
 

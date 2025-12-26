@@ -968,9 +968,416 @@ formatDueDate(dueDate: string | null): string {
 
 ---
 
+## Dynamic Button Rendering (Phase 10)
+
+### Overview
+
+Enhanced UI to show only contextually valid actions, reducing clutter and improving user experience.
+
+**Problem**: All buttons (Borrow, Reserve, Cancel, Return, Extend) were always visible, even when invalid for the current selection.
+
+**Solution**: Implemented dynamic button visibility based on book/member state.
+
+### Implementation
+
+#### Button Visibility Logic
+
+**Five helper methods control button visibility**:
+
+1. **`canBorrow()`**: Show Borrow button when:
+   - Book is available (not loaned, no queue), OR
+   - Member is at head of reservation queue
+
+2. **`canReserve()`**: Show Reserve button when:
+   - Book not already borrowed by this member, AND
+   - Member not already in reservation queue
+
+3. **`canCancelReservation()`**: Show Cancel button when:
+   - Member is in the book's reservation queue
+
+4. **`canReturn()`**: Show Return button when:
+   - Book is loaned to the selected member
+
+5. **`canExtendLoan()`**: Show Extend Loan button when:
+   - Book is loaned to the selected member
+
+**Code Example**:
+```typescript
+canBorrow(): boolean {
+  if (!this.activeBook || !this.selectedMemberId) return false;
+  const book = this.activeBook;
+
+  // Can borrow if book is available (not loaned and no queue)
+  if (!book.loanedTo && book.reservationQueue.length === 0) return true;
+
+  // Or if member is at head of reservation queue
+  if (book.reservationQueue.length > 0 && book.reservationQueue[0] === this.selectedMemberId) {
+    return true;
+  }
+
+  return false;
+}
+```
+
+#### UI Layout Improvements
+
+**Two-Row Button Layout**:
+- **Row 1**: Acquisition actions (Borrow, Reserve, Cancel Reservation)
+- **Row 2**: Management actions (Return, Extend Loan)
+
+**CSS Changes**:
+```css
+.actions-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.actions-row-1,
+.actions-row-2 {
+  min-height: 42px;  /* Prevents layout shifts when buttons hide */
+}
+```
+
+**HTML Template**:
+```html
+<div class="actions-container">
+  <div class="actions actions-row-1">
+    <button *ngIf="canBorrow()" ...>{{ t('borrow') }}</button>
+    <button *ngIf="canReserve()" ...>{{ t('reserve') }}</button>
+    <button *ngIf="canCancelReservation()" ...>{{ t('cancelReservation') }}</button>
+  </div>
+  <div class="actions actions-row-2">
+    <button *ngIf="canReturn()" ...>{{ t('return') }}</button>
+    <button *ngIf="canExtendLoan()" ...>{{ t('extendLoan') }}</button>
+  </div>
+</div>
+```
+
+### User Experience Impact
+
+**Before**:
+- 5 buttons always visible (cluttered)
+- Users could attempt invalid actions
+- Required reading error messages to understand why action failed
+
+**After**:
+- Only 1-3 buttons visible at a time
+- UI guides user to valid actions
+- Cleaner, more professional appearance
+- Immediate visual feedback on state changes
+
+**Example Scenarios**:
+
+| Book State | Member State | Visible Buttons |
+|------------|-------------|-----------------|
+| Available | Any | Borrow |
+| Loaned to m1 | m1 selected | Return, Extend Loan |
+| Loaned to m1 | m2 selected | Reserve |
+| Loaned with queue | In queue | Cancel Reservation |
+| Available | At head of queue | Borrow |
+
+### Files Modified
+
+**TypeScript** (1):
+- `app.component.ts` - Added 5 `can*()` helper methods
+
+**HTML** (1):
+- `app.component.html` - Added `*ngIf` conditionals, two-row layout
+
+**CSS** (1):
+- `app.component.css` - Added `.actions-container`, `.actions-row-1/2` styles
+
+### Verification
+
+**Manual Testing**: ✅ All button states working correctly
+- Available book: Only "Borrow" appears
+- Borrowed by self: Only "Return" and "Extend Loan" appear
+- Borrowed by other: Only "Reserve" appears
+- In queue: Only "Cancel Reservation" appears
+
+**Backend Tests**: ✅ 58/58 passing (no backend changes)
+
+---
+
+## Extension Modal Dialog (Phase 11)
+
+### Overview
+
+Replaced browser `prompt()` with a professional modal dialog for loan extensions, including input validation and real-time due date preview.
+
+**Improvements**:
+- Professional modal UI matching app design
+- Real-time calculation of new due date
+- Input validation (1-90 day range)
+- Business rule enforcement (can't extend when reservations exist)
+- Better user feedback
+
+### Implementation
+
+#### Frontend Modal System
+
+**Modal State Management**:
+```typescript
+// Component properties
+extensionModalOpen = false;
+extensionDays = 7;  // Default extension
+readonly MIN_EXTENSION_DAYS = 1;
+readonly MAX_EXTENSION_DAYS = 90;
+
+// Open modal
+openExtensionModal(): void {
+  if (!this.selectedBookId || !this.selectedMemberId) return;
+  this.extensionDays = 7; // Reset to default
+  this.extensionModalOpen = true;
+}
+
+// Close modal
+closeExtensionModal(): void {
+  this.extensionModalOpen = false;
+  this.extensionDays = 7;
+}
+
+// Submit extension
+async submitExtensionModal(): Promise<void> {
+  if (this.extensionDays < this.MIN_EXTENSION_DAYS ||
+      this.extensionDays > this.MAX_EXTENSION_DAYS) {
+    this.lastMessage = `Extension must be between ${this.MIN_EXTENSION_DAYS} and ${this.MAX_EXTENSION_DAYS} days`;
+    return;
+  }
+
+  await this.runAction(() =>
+    this.api.extendLoan(this.selectedBookId!, this.selectedMemberId!, this.extensionDays)
+  );
+  this.closeExtensionModal();
+}
+```
+
+**Real-Time Due Date Preview**:
+```typescript
+get currentDueDate(): string | null {
+  return this.activeBook?.dueDate || null;
+}
+
+get newDueDate(): string | null {
+  if (!this.currentDueDate) return null;
+  const current = new Date(this.currentDueDate);
+  const newDate = new Date(current);
+  newDate.setDate(current.getDate() + this.extensionDays);
+  return newDate.toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric'
+  });
+}
+```
+
+**Modal HTML**:
+```html
+<div class="modal-backdrop" *ngIf="extensionModalOpen">
+  <div class="modal card extension-modal">
+    <div class="card__header">
+      <h3>{{ t('extendLoan') }} for "{{ activeBook?.title }}"</h3>
+      <button class="icon-btn" (click)="closeExtensionModal()">✕</button>
+    </div>
+    <div class="extension-content">
+      <!-- Current Due Date -->
+      <div class="date-info">
+        <label class="field">
+          <span class="muted">{{ t('currentDue') }}</span>
+          <span class="date-value">{{ currentDueDate ? formatDueDate(currentDueDate) : 'N/A' }}</span>
+        </label>
+      </div>
+
+      <!-- Extension Input -->
+      <label class="field">
+        <span>{{ t('extendBy') }}</span>
+        <div class="number-input-group">
+          <input type="number"
+                 [(ngModel)]="extensionDays"
+                 [min]="MIN_EXTENSION_DAYS"
+                 [max]="MAX_EXTENSION_DAYS"
+                 step="1" />
+          <span class="unit">days</span>
+        </div>
+      </label>
+
+      <!-- New Due Date Preview -->
+      <div class="date-info">
+        <label class="field">
+          <span class="muted">{{ t('newDue') }}</span>
+          <span class="date-value highlight">{{ newDueDate || 'N/A' }}</span>
+        </label>
+      </div>
+    </div>
+    <div class="actions split">
+      <button (click)="submitExtensionModal()" ...>{{ t('extendLoan') }}</button>
+      <button class="secondary" (click)="closeExtensionModal()">{{ t('cancelAction') }}</button>
+    </div>
+  </div>
+</div>
+```
+
+#### Business Rule: Reservation Restriction
+
+**Frontend Restriction** (`canExtendLoan()`):
+```typescript
+canExtendLoan(): boolean {
+  if (!this.activeBook || !this.selectedMemberId) return false;
+
+  // Can only extend if you're the borrower
+  if (this.activeBook.loanedTo !== this.selectedMemberId) return false;
+
+  // Cannot extend if book has reservations (others are waiting)
+  if (this.activeBook.reservationQueue.length > 0) return false;
+
+  return true;
+}
+```
+
+**Backend Validation** (`LibraryService.extendLoan()`):
+```java
+// Cannot extend if book has reservations (others are waiting)
+if (!entity.getReservationQueue().isEmpty()) {
+  return Result.failure("RESERVATION_EXISTS");
+}
+```
+
+**New Error Code**:
+- `RESERVATION_EXISTS`: "Cannot extend: others are waiting for this book"
+
+**Test Coverage**:
+```java
+@Test
+void extendLoan_FailsWhenBookHasReservations() {
+  // Given: Book is loaned to m1 but has reservations (others are waiting)
+  testBook.setLoanedTo("m1");
+  testBook.setDueDate(LocalDate.now().plusDays(14));
+  testBook.getReservationQueue().add("m2"); // m2 is waiting
+  when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+  when(memberRepository.existsById("m1")).thenReturn(true);
+
+  // When: Current borrower tries to extend
+  Result result = service.extendLoan("b1", "m1", 7);
+
+  // Then: Should fail (cannot extend when others are waiting)
+  assertThat(result.ok()).isFalse();
+  assertThat(result.reason()).isEqualTo("RESERVATION_EXISTS");
+  verify(bookRepository, never()).save(any(Book.class));
+}
+```
+
+### Files Modified
+
+**Backend** (2):
+- `LibraryService.java` - Added reservation queue check in `extendLoan()`
+- `LibraryServiceTest.java` - Added test for reservation restriction (59th test)
+
+**Frontend** (4):
+- `app.component.ts` - Modal state, methods, computed properties
+- `app.component.html` - Modal template
+- `app.component.css` - Modal styling
+- `i18n.ts` - Translation keys (currentDue, extendBy, newDue, RESERVATION_EXISTS)
+
+### User Experience
+
+**Old Flow (Phase 9)**:
+1. Click "Extend Loan" button
+2. Browser prompt: "Enter extension days"
+3. Type number, click OK
+4. See result in status message
+
+**New Flow (Phase 11)**:
+1. Click "Extend Loan" button
+2. Modal opens with current book title
+3. See current due date formatted
+4. Adjust days with number input (spinner or keyboard)
+5. See new due date update in real-time
+6. Click "Extend Loan" or "Cancel"
+7. Modal closes, status message shows result
+
+**Validation Feedback**:
+- HTML5 `min`/`max` attributes prevent invalid input
+- Button disabled if value out of range
+- Clear error message if validation fails
+
+### Known Issues
+
+**Issue #1: Button Vertical Alignment**
+
+**Status**: ✅ **RESOLVED** (Phase 12)
+
+**Description**: Buttons in the action panel appeared at different vertical levels.
+
+**Root Cause**: Phase 10 created a two-row button layout (`actions-row-1` and `actions-row-2`) that stacked buttons vertically, causing misalignment with dropdowns.
+
+**Failed Fix Attempt (Phase 11)**:
+```css
+.controls {
+  align-items: start;  /* CSS alignment changes */
+}
+.controls label {
+  align-self: end;
+}
+.actions-container {
+  align-self: end;
+}
+```
+This didn't work because the problem was structural, not CSS-based.
+
+**Successful Fix (Phase 12)**:
+- Merged both button rows into a single `.actions` container
+- Removed `.actions-row-1` and `.actions-row-2` divs
+- Simplified CSS to use single flex container with `flex-wrap: wrap`
+- Result: All buttons on same horizontal baseline, properly aligned with dropdowns
+
+**Files Changed**:
+- `frontend/src/app/app.component.html` - Single button container
+- `frontend/src/app/app.component.css` - Simplified CSS
+
+---
+
+**Issue #2: Extension Limit Bypass**
+
+**Status**: ⚠️ Documented, deferred to Phase 4
+
+**Description**: The 90-day extension limit can be bypassed by reopening the modal multiple times:
+- Extend by 90 days (Jan 1 → Apr 1)
+- Reopen modal, extend by 90 days again (Apr 1 → Jun 30)
+- Total: 180 days from original (exceeds 3-month limit)
+
+**Root Cause**: Extension limit is per-dialog, not cumulative from original due date.
+
+**Expected Behavior**: Extension should be limited to 3 months total from the **initial** due date, not the current due date.
+
+**Proposed Solution**:
+1. Backend: Add `originalDueDate` field to Book entity
+2. Backend: Set `originalDueDate` when book first loaned
+3. Backend: Calculate remaining extension allowance:
+   ```java
+   long maxExtensionDays = 90; // 3 months ≈ 90 days
+   LocalDate maxAllowedDate = originalDueDate.plusDays(maxExtensionDays);
+   long remainingDays = ChronoUnit.DAYS.between(currentDueDate, maxAllowedDate);
+   if (days > remainingDays) {
+     return Result.failure("EXTENSION_LIMIT_EXCEEDED");
+   }
+   ```
+4. Frontend: Dynamically calculate `maxAllowedExtension` based on original due date
+
+**Impact**: Requires API changes (new field in Book DTO)
+
+**Next Steps**: Add to Phase 4 implementation plan
+
+### Test Results
+
+**Backend**: ✅ 59/59 tests passing (+1 new test)
+**Frontend**: ✅ Compiles successfully, UI functional
+**API Surface**: ✅ Only added error code `RESERVATION_EXISTS`
+**Backward Compatibility**: ✅ 100% maintained
+
+---
+
 **Last Updated**: December 25, 2025
-**Version**: 1.4
-**Test Coverage**: 58/58 tests passing (100%)
+**Version**: 1.5
+**Test Coverage**: 59/59 tests passing (100%)
 **API Contract Compliance**: ✅ **FIXED** - All violations resolved
 **API Documentation**: ✅ **Swagger UI** available
-**Frontend Features**: ✅ **Due dates** and **Loan extension** added
+**Frontend Features**: ✅ **Due dates**, **Dynamic buttons**, and **Extension modal** added

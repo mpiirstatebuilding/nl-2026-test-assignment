@@ -45,14 +45,12 @@
         </select>
       </label>
       <div class="actions-container">
-        <div class="actions actions-row-1">
+        <div class="actions">
           <button *ngIf="canBorrow()" (click)="borrow()" [disabled]="loading || !apiAvailable">{{ t('borrow') }}</button>
           <button *ngIf="canReserve()" class="secondary" (click)="reserve()" [disabled]="loading || !apiAvailable">{{ t('reserve') }}</button>
           <button *ngIf="canCancelReservation()" class="ghost" (click)="cancelReservation()" [disabled]="loading || !apiAvailable">{{ t('cancelReservation') }}</button>
-        </div>
-        <div class="actions actions-row-2">
           <button *ngIf="canReturn()" class="ghost" (click)="returnBook()" [disabled]="loading || !apiAvailable">{{ t('return') }}</button>
-          <button *ngIf="canExtendLoan()" class="ghost" (click)="extendLoan()" [disabled]="loading || !apiAvailable">{{ t('extendLoan') }}</button>
+          <button *ngIf="canExtendLoan()" class="ghost" (click)="openExtensionModal()" [disabled]="loading || !apiAvailable">{{ t('extendLoan') }}</button>
         </div>
       </div>
     </div>
@@ -193,6 +191,45 @@
     <div class="actions split">
       <button (click)="submitMemberModal()" [disabled]="loading || !memberNameInput || (!memberIdInput && memberModalMode === 'create')">{{ t('save') }}</button>
       <button class="secondary" (click)="closeMemberModal()">{{ t('cancelAction') }}</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="extensionModalOpen">
+  <div class="modal card extension-modal">
+    <div class="card__header">
+      <h3>{{ t('extendLoan') }} for "{{ activeBook?.title }}"</h3>
+      <button class="icon-btn" (click)="closeExtensionModal()" title="{{ t('cancelAction') }}">✕</button>
+    </div>
+    <div class="extension-content">
+      <div class="date-info">
+        <label class="field">
+          <span class="muted">{{ t('currentDue') }}</span>
+          <span class="date-value">{{ currentDueDate ? formatDueDate(currentDueDate) : 'N/A' }}</span>
+        </label>
+      </div>
+      <label class="field">
+        <span>{{ t('extendBy') }}</span>
+        <div class="number-input-group">
+          <input type="number"
+                 [(ngModel)]="extensionDays"
+                 [min]="MIN_EXTENSION_DAYS"
+                 [max]="MAX_EXTENSION_DAYS"
+                 step="1"
+                 [disabled]="loading" />
+          <span class="unit">days</span>
+        </div>
+      </label>
+      <div class="date-info">
+        <label class="field">
+          <span class="muted">{{ t('newDue') }}</span>
+          <span class="date-value highlight">{{ newDueDate || 'N/A' }}</span>
+        </label>
+      </div>
+    </div>
+    <div class="actions split">
+      <button (click)="submitExtensionModal()" [disabled]="loading || extensionDays < MIN_EXTENSION_DAYS || extensionDays > MAX_EXTENSION_DAYS">{{ t('extendLoan') }}</button>
+      <button class="secondary" (click)="closeExtensionModal()">{{ t('cancelAction') }}</button>
     </div>
   </div>
 </div>

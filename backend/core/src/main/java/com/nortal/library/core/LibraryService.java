@@ -322,6 +322,10 @@ public class LibraryService {
     if (!memberId.equals(entity.getLoanedTo())) {
       return Result.failure("NOT_BORROWER");
     }
+    // Cannot extend if book has reservations (others are waiting)
+    if (!entity.getReservationQueue().isEmpty()) {
+      return Result.failure("RESERVATION_EXISTS");
+    }
     LocalDate baseDate =
         entity.getDueDate() == null
             ? LocalDate.now().plusDays(DEFAULT_LOAN_DAYS)

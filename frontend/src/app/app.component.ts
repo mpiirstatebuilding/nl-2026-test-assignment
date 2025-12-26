@@ -24,10 +24,14 @@ export class AppComponent {
   bookModalMode: 'create' | 'edit' = 'create';
   memberModalOpen = false;
   memberModalMode: 'create' | 'edit' = 'create';
+  extensionModalOpen = false;
+  extensionDays = 7;
   lastMessage = translate('statusIdle');
   loading = false;
   apiAvailable = true;
 
+  readonly MIN_EXTENSION_DAYS = 1;
+  readonly MAX_EXTENSION_DAYS = 90;
   private readonly api = new LibraryApiService();
 
   constructor() {
@@ -100,20 +104,41 @@ export class AppComponent {
     await this.runAction(() => this.api.returnBook(this.selectedBookId!, this.selectedMemberId!));
   }
 
-  async extendLoan(): Promise<void> {
+  openExtensionModal(): void {
     if (!this.selectedBookId || !this.selectedMemberId) {
       return;
     }
-    const daysInput = prompt('How many days to extend? (e.g., 7 for 7 days, -3 to shorten by 3 days)');
-    if (daysInput === null) return; // User cancelled
+    this.extensionDays = 7; // Reset to default
+    this.extensionModalOpen = true;
+  }
 
-    const days = parseInt(daysInput, 10);
-    if (isNaN(days) || days === 0) {
-      this.lastMessage = this.t('INVALID_EXTENSION');
+  closeExtensionModal(): void {
+    this.extensionModalOpen = false;
+    this.extensionDays = 7;
+  }
+
+  async submitExtensionModal(): Promise<void> {
+    if (this.extensionDays < this.MIN_EXTENSION_DAYS || this.extensionDays > this.MAX_EXTENSION_DAYS) {
+      this.lastMessage = `Extension must be between ${this.MIN_EXTENSION_DAYS} and ${this.MAX_EXTENSION_DAYS} days`;
       return;
     }
 
-    await this.runAction(() => this.api.extendLoan(this.selectedBookId!, this.selectedMemberId!, days));
+    await this.runAction(() =>
+      this.api.extendLoan(this.selectedBookId!, this.selectedMemberId!, this.extensionDays)
+    );
+    this.closeExtensionModal();
+  }
+
+  get currentDueDate(): string | null {
+    return this.activeBook?.dueDate || null;
+  }
+
+  get newDueDate(): string | null {
+    if (!this.currentDueDate) return null;
+    const current = new Date(this.currentDueDate);
+    const newDate = new Date(current);
+    newDate.setDate(current.getDate() + this.extensionDays);
+    return newDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   async createBook(): Promise<void> {
@@ -278,7 +303,14 @@ export class AppComponent {
 
   canExtendLoan(): boolean {
     if (!this.activeBook || !this.selectedMemberId) return false;
-    return this.activeBook.loanedTo === this.selectedMemberId;
+
+    // Can only extend if you're the borrower
+    if (this.activeBook.loanedTo !== this.selectedMemberId) return false;
+
+    // Cannot extend if book has reservations (others are waiting)
+    if (this.activeBook.reservationQueue.length > 0) return false;
+
+    return true;
   }
 
   onBookSelectionChange(id: string | null) {
