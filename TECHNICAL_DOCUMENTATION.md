@@ -2005,11 +2005,17 @@ class Loan {
 
 ### 10. Documentation & API
 
-#### 10.1 Complete Swagger Coverage
+#### 10.1 Complete Swagger Coverage ✅ COMPLETED (Phase 13)
 
-**Current State**: LoanController fully documented, BookController and MemberController pending.
+**Status**: All controllers fully documented with Swagger/OpenAPI annotations.
 
-**Recommendation**: Add comprehensive Swagger annotations to all controllers (estimated 60 minutes).
+**Coverage**:
+- ✅ **LoanController**: 6 endpoints (borrow, return, reserve, cancel, extend, overdue)
+- ✅ **BookController**: 5 endpoints (list, search, create, update, delete)
+- ✅ **MemberController**: 5 endpoints (list, summary, create, update, delete)
+- **Total**: 16/16 endpoints (100% coverage)
+
+**Swagger UI**: http://localhost:8080/swagger-ui/index.html provides interactive API documentation with detailed examples for all endpoints.
 
 ---
 
@@ -2050,7 +2056,7 @@ Or use header-based versioning:
 - [ ] Add cumulative extension limit tracking (`originalDueDate`)
 - [ ] Enable caching layer (Caffeine/Redis)
 - [ ] Add integration tests for concurrent scenarios
-- [ ] Complete Swagger documentation for all endpoints
+- [x] Complete Swagger documentation for all endpoints ✅ (Phase 13)
 - [ ] Role-based access control (member/admin/librarian)
 
 ### Medium Priority (Nice-to-Have)
@@ -2070,10 +2076,10 @@ Or use header-based versioning:
 
 ---
 
-**Last Updated**: December 25, 2025
-**Version**: 1.6
+**Last Updated**: December 26, 2025
+**Version**: 1.7
 **Test Coverage**: 59/59 tests passing (100%)
 **API Contract Compliance**: ✅ **FIXED** - All violations resolved
-**API Documentation**: ✅ **Swagger UI** available (LoanController complete, others pending)
+**API Documentation**: ✅ **Swagger UI** - 100% coverage (16/16 endpoints documented)
 **Frontend Features**: ✅ **Due dates**, **Dynamic buttons**, and **Extension modal** added
 **Production Readiness**: ⚠️ **Development-ready**, see checklist above for production deployment
