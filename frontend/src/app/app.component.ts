@@ -1,32 +1,41 @@
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { ActionResult, Book, LibraryApiService, Member } from './library.service';
-import { t as translate } from './i18n';
+import { Component } from "@angular/core";
+import { CommonModule } from "@angular/common";
+import { FormsModule } from "@angular/forms";
+import {
+  ActionResult,
+  Book,
+  LibraryApiService,
+  Member,
+  MemberSummary,
+  OverdueBook,
+} from "./library.service";
+import { t as translate } from "./i18n";
 
 @Component({
-  selector: 'app-root',
+  selector: "app-root",
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './app.component.html',
-  styleUrls: ['./app.component.css'],
+  templateUrl: "./app.component.html",
+  styleUrls: ["./app.component.css"],
 })
 export class AppComponent {
   books: Book[] = [];
   members: Member[] = [];
+  overdueBooks: OverdueBook[] = [];
+  memberSummary: MemberSummary | null = null;
   selectedBookId: string | null = null;
   selectedMemberId: string | null = null;
-  bookIdInput = '';
-  bookTitleInput = '';
-  memberIdInput = '';
-  memberNameInput = '';
+  bookIdInput = "";
+  bookTitleInput = "";
+  memberIdInput = "";
+  memberNameInput = "";
   bookModalOpen = false;
-  bookModalMode: 'create' | 'edit' = 'create';
+  bookModalMode: "create" | "edit" = "create";
   memberModalOpen = false;
-  memberModalMode: 'create' | 'edit' = 'create';
+  memberModalMode: "create" | "edit" = "create";
   extensionModalOpen = false;
   extensionDays = 7;
-  lastMessage = translate('statusIdle');
+  lastMessage = translate("statusIdle");
   loading = false;
   apiAvailable = true;
   bookModalError: string | null = null;
@@ -47,12 +56,19 @@ export class AppComponent {
   async refreshAll(): Promise<void> {
     this.loading = true;
     try {
-      const [books, members] = await Promise.all([this.api.books(), this.api.members()]);
+      const [books, members] = await Promise.all([
+        this.api.books(),
+        this.api.members(),
+      ]);
       this.apiAvailable = true;
       this.books = [...books].sort((a, b) => a.id.localeCompare(b.id));
       this.members = [...members].sort((a, b) => a.id.localeCompare(b.id));
-      const bookStillExists = this.selectedBookId && this.books.some(b => b.id === this.selectedBookId);
-      const memberStillExists = this.selectedMemberId && this.members.some(m => m.id === this.selectedMemberId);
+      const bookStillExists =
+        this.selectedBookId &&
+        this.books.some((b) => b.id === this.selectedBookId);
+      const memberStillExists =
+        this.selectedMemberId &&
+        this.members.some((m) => m.id === this.selectedMemberId);
       if (!bookStillExists) {
         this.selectedBookId = this.books.length ? this.books[0].id : null;
       }
@@ -60,10 +76,10 @@ export class AppComponent {
         this.selectedMemberId = this.members.length ? this.members[0].id : null;
       }
       this.syncInputsWithSelection();
-      this.lastMessage = this.lastMessage || this.t('sampleData');
+      this.lastMessage = this.lastMessage || this.t("sampleData");
     } catch (e) {
       this.apiAvailable = false;
-      this.lastMessage = this.t('apiOffline');
+      this.lastMessage = this.t("apiOffline");
     } finally {
       this.loading = false;
     }
@@ -73,14 +89,18 @@ export class AppComponent {
     if (!this.selectedBookId || !this.selectedMemberId) {
       return;
     }
-    await this.runAction(() => this.api.borrow(this.selectedBookId!, this.selectedMemberId!));
+    await this.runAction(() =>
+      this.api.borrow(this.selectedBookId!, this.selectedMemberId!),
+    );
   }
 
   async reserve(): Promise<void> {
     if (!this.selectedBookId || !this.selectedMemberId) {
       return;
     }
-    await this.runAction(() => this.api.reserve(this.selectedBookId!, this.selectedMemberId!));
+    await this.runAction(() =>
+      this.api.reserve(this.selectedBookId!, this.selectedMemberId!),
+    );
   }
 
   async cancelReservation(): Promise<void> {
@@ -88,7 +108,7 @@ export class AppComponent {
       return;
     }
     await this.runAction(() =>
-      this.api.cancelReservation(this.selectedBookId!, this.selectedMemberId!)
+      this.api.cancelReservation(this.selectedBookId!, this.selectedMemberId!),
     );
   }
 
@@ -99,11 +119,13 @@ export class AppComponent {
     // Get the book to verify it's loaned
     const book = this.activeBook;
     if (!book || !book.loanedTo) {
-      this.lastMessage = this.t('NOT_LOANED');
+      this.lastMessage = this.t("NOT_LOANED");
       return;
     }
     // Pass the SELECTED member's ID - backend will verify they are the current borrower
-    await this.runAction(() => this.api.returnBook(this.selectedBookId!, this.selectedMemberId!));
+    await this.runAction(() =>
+      this.api.returnBook(this.selectedBookId!, this.selectedMemberId!),
+    );
   }
 
   openExtensionModal(): void {
@@ -120,13 +142,20 @@ export class AppComponent {
   }
 
   async submitExtensionModal(): Promise<void> {
-    if (this.extensionDays < this.MIN_EXTENSION_DAYS || this.extensionDays > this.MAX_EXTENSION_DAYS) {
+    if (
+      this.extensionDays < this.MIN_EXTENSION_DAYS ||
+      this.extensionDays > this.MAX_EXTENSION_DAYS
+    ) {
       this.lastMessage = `Extension must be between ${this.MIN_EXTENSION_DAYS} and ${this.MAX_EXTENSION_DAYS} days`;
       return;
     }
 
     await this.runAction(() =>
-      this.api.extendLoan(this.selectedBookId!, this.selectedMemberId!, this.extensionDays)
+      this.api.extendLoan(
+        this.selectedBookId!,
+        this.selectedMemberId!,
+        this.extensionDays,
+      ),
     );
     this.closeExtensionModal();
   }
@@ -140,27 +169,34 @@ export class AppComponent {
     const current = new Date(this.currentDueDate);
     const newDate = new Date(current);
     newDate.setDate(current.getDate() + this.extensionDays);
-    return newDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return newDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   }
 
   async createBook(): Promise<void> {
     if (!this.bookIdInput || !this.bookTitleInput) {
-      this.bookModalError = 'INVALID_REQUEST';
+      this.bookModalError = "INVALID_REQUEST";
       return;
     }
     this.bookModalError = null;
     this.loading = true;
     try {
-      const result = await this.api.createBook(this.bookIdInput, this.bookTitleInput);
+      const result = await this.api.createBook(
+        this.bookIdInput,
+        this.bookTitleInput,
+      );
       if (!result.ok) {
-        this.bookModalError = result.reason ?? 'INVALID_REQUEST';
+        this.bookModalError = result.reason ?? "INVALID_REQUEST";
         return;
       }
-      this.lastMessage = this.t('ok');
+      this.lastMessage = this.t("ok");
       this.closeBookModal();
       await this.refreshAll();
     } catch (e) {
-      this.bookModalError = 'apiError';
+      this.bookModalError = "apiError";
     } finally {
       this.loading = false;
     }
@@ -168,16 +204,18 @@ export class AppComponent {
 
   async updateBook(): Promise<void> {
     if (!this.bookIdInput || !this.bookTitleInput) {
-      this.lastMessage = this.t('INVALID_REQUEST');
+      this.lastMessage = this.t("INVALID_REQUEST");
       return;
     }
-    await this.runAction(() => this.api.updateBook(this.bookIdInput, this.bookTitleInput));
+    await this.runAction(() =>
+      this.api.updateBook(this.bookIdInput, this.bookTitleInput),
+    );
     this.clearBookModal();
   }
 
   async deleteBook(id: string): Promise<void> {
     if (!id) {
-      this.lastMessage = this.t('INVALID_REQUEST');
+      this.lastMessage = this.t("INVALID_REQUEST");
       return;
     }
     await this.runAction(() => this.api.deleteBook(id));
@@ -185,22 +223,25 @@ export class AppComponent {
 
   async createMember(): Promise<void> {
     if (!this.memberIdInput || !this.memberNameInput) {
-      this.memberModalError = 'INVALID_REQUEST';
+      this.memberModalError = "INVALID_REQUEST";
       return;
     }
     this.memberModalError = null;
     this.loading = true;
     try {
-      const result = await this.api.createMember(this.memberIdInput, this.memberNameInput);
+      const result = await this.api.createMember(
+        this.memberIdInput,
+        this.memberNameInput,
+      );
       if (!result.ok) {
-        this.memberModalError = result.reason ?? 'INVALID_REQUEST';
+        this.memberModalError = result.reason ?? "INVALID_REQUEST";
         return;
       }
-      this.lastMessage = this.t('ok');
+      this.lastMessage = this.t("ok");
       this.closeMemberModal();
       await this.refreshAll();
     } catch (e) {
-      this.memberModalError = 'apiError';
+      this.memberModalError = "apiError";
     } finally {
       this.loading = false;
     }
@@ -208,16 +249,18 @@ export class AppComponent {
 
   async updateMember(): Promise<void> {
     if (!this.memberIdInput || !this.memberNameInput) {
-      this.lastMessage = this.t('INVALID_REQUEST');
+      this.lastMessage = this.t("INVALID_REQUEST");
       return;
     }
-    await this.runAction(() => this.api.updateMember(this.memberIdInput, this.memberNameInput));
+    await this.runAction(() =>
+      this.api.updateMember(this.memberIdInput, this.memberNameInput),
+    );
     this.clearMemberModal();
   }
 
   async deleteMember(id: string): Promise<void> {
     if (!id) {
-      this.lastMessage = this.t('INVALID_REQUEST');
+      this.lastMessage = this.t("INVALID_REQUEST");
       return;
     }
     await this.runAction(() => this.api.deleteMember(id));
@@ -230,7 +273,7 @@ export class AppComponent {
       this.lastMessage = this.describeResult(result);
       await this.refreshAll();
     } catch (e) {
-      this.lastMessage = this.t('apiError');
+      this.lastMessage = this.t("apiError");
     } finally {
       this.loading = false;
     }
@@ -238,43 +281,52 @@ export class AppComponent {
 
   private describeResult(result: ActionResult): string {
     if (result.ok) {
-      if (typeof result.nextMemberId !== 'undefined') {
-        return result.nextMemberId ? `${this.t('ok')} -> ${result.nextMemberId}` : this.t('ok');
+      if (typeof result.nextMemberId !== "undefined") {
+        return result.nextMemberId
+          ? `${this.t("ok")} -> ${result.nextMemberId}`
+          : this.t("ok");
       }
-      return this.t('ok');
+      return this.t("ok");
     }
-    const reasonKey = result.reason ?? 'INVALID_REQUEST';
+    const reasonKey = result.reason ?? "INVALID_REQUEST";
     return this.t(reasonKey);
   }
 
   get activeBook(): Book | undefined {
-    return this.selectedBookId ? this.books.find(b => b.id === this.selectedBookId) : undefined;
+    return this.selectedBookId
+      ? this.books.find((b) => b.id === this.selectedBookId)
+      : undefined;
   }
 
   get activeMember(): Member | undefined {
-    return this.selectedMemberId ? this.members.find(m => m.id === this.selectedMemberId) : undefined;
+    return this.selectedMemberId
+      ? this.members.find((m) => m.id === this.selectedMemberId)
+      : undefined;
   }
 
   get booksOnLoanCount(): number {
-    return this.books.filter(b => !!b.loanedTo).length;
+    return this.books.filter((b) => !!b.loanedTo).length;
   }
 
   get queuedCount(): number {
-    return this.books.reduce((acc, book) => acc + book.reservationQueue.length, 0);
+    return this.books.reduce(
+      (acc, book) => acc + book.reservationQueue.length,
+      0,
+    );
   }
 
   bookStatusLabel(book: Book): string {
     if (book.loanedTo) {
-      return `${this.t('loanedChip')}: ${book.loanedTo}`;
+      return `${this.t("loanedChip")}: ${book.loanedTo}`;
     }
     if (book.reservationQueue.length) {
-      return `${this.t('queueChip')}: ${book.reservationQueue.length}`;
+      return `${this.t("queueChip")}: ${book.reservationQueue.length}`;
     }
-    return this.t('availableChip');
+    return this.t("availableChip");
   }
 
   formatDueDate(dueDate: string | null): string {
-    if (!dueDate) return '';
+    if (!dueDate) return "";
     const date = new Date(dueDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -283,13 +335,13 @@ export class AppComponent {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) {
-      return `⚠️ Overdue by ${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? '' : 's'}`;
+      return `⚠️ Overdue by ${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? "" : "s"}`;
     } else if (diffDays === 0) {
-      return '⚠️ Due today';
+      return "⚠️ Due today";
     } else if (diffDays <= 3) {
-      return `⚠️ Due in ${diffDays} day${diffDays === 1 ? '' : 's'}`;
+      return `⚠️ Due in ${diffDays} day${diffDays === 1 ? "" : "s"}`;
     } else {
-      return `Due: ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+      return `Due: ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
     }
   }
 
@@ -301,7 +353,10 @@ export class AppComponent {
     if (!book.loanedTo && book.reservationQueue.length === 0) return true;
 
     // Or if member is at head of reservation queue
-    if (book.reservationQueue.length > 0 && book.reservationQueue[0] === this.selectedMemberId) {
+    if (
+      book.reservationQueue.length > 0 &&
+      book.reservationQueue[0] === this.selectedMemberId
+    ) {
       return true;
     }
 
@@ -362,33 +417,33 @@ export class AppComponent {
   }
 
   private syncInputsWithSelection() {
-    this.bookTitleInput = this.activeBook?.title ?? '';
-    this.memberNameInput = this.activeMember?.name ?? '';
+    this.bookTitleInput = this.activeBook?.title ?? "";
+    this.memberNameInput = this.activeMember?.name ?? "";
   }
 
-  openBookModal(mode: 'create' | 'edit', book?: Book) {
+  openBookModal(mode: "create" | "edit", book?: Book) {
     this.bookModalMode = mode;
     this.bookModalOpen = true;
     this.bookModalError = null;
-    if (mode === 'edit' && book) {
+    if (mode === "edit" && book) {
       this.bookIdInput = book.id;
       this.bookTitleInput = book.title;
     } else {
-      this.bookIdInput = '';
-      this.bookTitleInput = '';
+      this.bookIdInput = "";
+      this.bookTitleInput = "";
     }
   }
 
-  openMemberModal(mode: 'create' | 'edit', member?: Member) {
+  openMemberModal(mode: "create" | "edit", member?: Member) {
     this.memberModalMode = mode;
     this.memberModalOpen = true;
     this.memberModalError = null;
-    if (mode === 'edit' && member) {
+    if (mode === "edit" && member) {
       this.memberIdInput = member.id;
       this.memberNameInput = member.name;
     } else {
-      this.memberIdInput = '';
-      this.memberNameInput = '';
+      this.memberIdInput = "";
+      this.memberNameInput = "";
     }
   }
 
@@ -403,7 +458,7 @@ export class AppComponent {
   }
 
   async submitBookModal() {
-    if (this.bookModalMode === 'edit') {
+    if (this.bookModalMode === "edit") {
       await this.updateBook();
     } else {
       await this.createBook();
@@ -411,7 +466,7 @@ export class AppComponent {
   }
 
   async submitMemberModal() {
-    if (this.memberModalMode === 'edit') {
+    if (this.memberModalMode === "edit") {
       await this.updateMember();
     } else {
       await this.createMember();
@@ -419,23 +474,25 @@ export class AppComponent {
   }
 
   private clearBookModal() {
-    this.bookIdInput = '';
-    this.bookTitleInput = '';
+    this.bookIdInput = "";
+    this.bookTitleInput = "";
     this.bookModalError = null;
   }
 
   private clearMemberModal() {
-    this.memberIdInput = '';
-    this.memberNameInput = '';
+    this.memberIdInput = "";
+    this.memberNameInput = "";
     this.memberModalError = null;
   }
 
   formatErrorMessage(errorCode: string): string {
     const messages: Record<string, string> = {
-      'BOOK_ALREADY_EXISTS': 'A book with this ID already exists. Please use a different ID.',
-      'MEMBER_ALREADY_EXISTS': 'A member with this ID already exists. Please use a different ID.',
-      'INVALID_REQUEST': 'Please fill in all required fields.',
-      'apiError': 'An error occurred while communicating with the API.',
+      BOOK_ALREADY_EXISTS:
+        "A book with this ID already exists. Please use a different ID.",
+      MEMBER_ALREADY_EXISTS:
+        "A member with this ID already exists. Please use a different ID.",
+      INVALID_REQUEST: "Please fill in all required fields.",
+      apiError: "An error occurred while communicating with the API.",
     };
     return messages[errorCode] || `Error: ${errorCode}`;
   }
@@ -447,5 +504,43 @@ export class AppComponent {
   dismissMemberError() {
     this.memberModalError = null;
   }
-}
 
+  async loadOverdueBooks(): Promise<void> {
+    this.loading = true;
+    try {
+      this.overdueBooks = await this.api.overdueBooks();
+      this.lastMessage = this.t("ok");
+    } catch (e) {
+      this.lastMessage = this.t("apiError");
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  async loadMemberSummary(memberId: string): Promise<void> {
+    if (!memberId) {
+      this.memberSummary = null;
+      return;
+    }
+    this.loading = true;
+    try {
+      this.memberSummary = await this.api.memberSummary(memberId);
+      this.lastMessage = this.t("ok");
+    } catch (e) {
+      this.lastMessage = this.t("apiError");
+      this.memberSummary = null;
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  calculateDaysOverdue(dueDate: string): number {
+    const due = new Date(dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+    const diffTime = today.getTime() - due.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(0, diffDays);
+  }
+}

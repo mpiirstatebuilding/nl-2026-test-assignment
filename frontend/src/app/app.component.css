@@ -16,7 +16,9 @@
   margin: 0 0 8px;
   font-size: 32px;
   color: #178321;
-  text-shadow: 0 0 8px rgba(23, 131, 33, 0.35), 0 0 16px rgba(23, 131, 33, 0.25);
+  text-shadow:
+    0 0 8px rgba(23, 131, 33, 0.35),
+    0 0 16px rgba(23, 131, 33, 0.25);
 }
 
 .hero__text p {
@@ -44,7 +46,11 @@
 }
 
 .pill {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(56, 189, 248, 0.05));
+  background: linear-gradient(
+    135deg,
+    rgba(56, 189, 248, 0.12),
+    rgba(56, 189, 248, 0.05)
+  );
   border: 1px solid rgba(56, 189, 248, 0.3);
   border-radius: 12px;
   padding: 10px 12px;
@@ -91,11 +97,15 @@
 }
 
 .action-card::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.08), transparent 35%);
+  background: radial-gradient(
+    circle at 20% 20%,
+    rgba(56, 189, 248, 0.08),
+    transparent 35%
+  );
 }
 
 .status-chip {
@@ -164,7 +174,10 @@ button {
   color: #0b0f1a;
   cursor: pointer;
   font-weight: 700;
-  transition: transform 0.1s, box-shadow 0.1s, opacity 0.2s;
+  transition:
+    transform 0.1s,
+    box-shadow 0.1s,
+    opacity 0.2s;
   white-space: nowrap;
 }
 
@@ -286,7 +299,9 @@ button.danger {
   padding: 12px 0;
   border-bottom: 1px solid #1f2937;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .list li:last-child {
@@ -478,7 +493,6 @@ button.danger {
   }
 }
 
-
 /* Extension Modal Styles */
 .extension-modal {
   max-width: 420px;
@@ -603,6 +617,236 @@ input.input-error {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Overdue Books Section */
+.overdue-section {
+  margin: 1.5rem 0;
+  background: #fff3cd;
+  border-left: 4px solid #ffc107;
+}
+
+.overdue-section .card__header {
+  background: rgba(255, 193, 7, 0.1);
+}
+
+.overdue-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.overdue-item {
+  padding: 1rem;
+  background: white;
+  border-left: 3px solid #dc3545;
+  border-radius: 4px;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+
+.overdue-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.15);
+}
+
+.overdue-item__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.overdue-item__title {
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.overdue-details {
+  color: #666;
+  font-size: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.overdue-details .highlight {
+  color: #333;
+  font-weight: 500;
+}
+
+.overdue-days {
+  color: #dc3545;
+  font-weight: 700;
+  padding: 0.125rem 0.5rem;
+  background: rgba(220, 53, 69, 0.1);
+  border-radius: 4px;
+}
+
+.success-message {
+  padding: 1.5rem;
+  text-align: center;
+  color: #28a745;
+  font-size: 1.1rem;
+  font-weight: 500;
+  background: rgba(40, 167, 69, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(40, 167, 69, 0.2);
+}
+
+/* Member Summary Section */
+.member-summary-section {
+  margin: 1.5rem 0;
+  background: #e7f3ff;
+  border-left: 4px solid #2196f3;
+}
+
+.member-summary-section .card__header {
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.member-selector {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid rgba(33, 150, 243, 0.2);
+}
+
+.member-selector label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+
+.member-selector select {
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 1rem;
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  border-radius: 4px;
+  background: white;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.member-selector select:hover:not(:disabled) {
+  border-color: #2196f3;
+}
+
+.member-selector select:focus {
+  outline: none;
+  border-color: #2196f3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.member-selector select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.member-info {
+  margin-top: 1rem;
+}
+
+.member-info h3 {
+  margin: 0 0 1.5rem 0;
+  padding: 1rem;
+  background: white;
+  border-left: 3px solid #2196f3;
+  border-radius: 4px;
+  color: #2196f3;
+  font-size: 1.2rem;
+}
+
+.loans-section,
+.reservations-section {
+  margin-bottom: 1.5rem;
+}
+
+.loans-section h4,
+.reservations-section h4 {
+  margin: 0 0 1rem 0;
+  color: var(--text);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.summary-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.summary-item {
+  padding: 1rem;
+  background: white;
+  border-left: 3px solid #2196f3;
+  border-radius: 4px;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.summary-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.15);
+}
+
+.summary-item__title {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.summary-item__details {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.no-data {
+  padding: 1rem;
+  text-align: center;
+  color: var(--muted);
+  font-style: italic;
+  background: rgba(33, 150, 243, 0.05);
+  border-radius: 4px;
+}
+
+.loading-message {
+  padding: 1.5rem;
+  text-align: center;
+  color: #2196f3;
+  font-size: 1rem;
+  background: rgba(33, 150, 243, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(33, 150, 243, 0.2);
+}
+
+.hint-message {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 1rem;
+  background: rgba(33, 150, 243, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(33, 150, 243, 0.15);
 }

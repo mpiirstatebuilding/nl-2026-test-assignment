@@ -1,6 +1,5 @@
-import { ApplicationConfig } from '@angular/core';
+import { ApplicationConfig } from "@angular/core";
 
 export const appConfig: ApplicationConfig = {
   providers: [],
 };
-
