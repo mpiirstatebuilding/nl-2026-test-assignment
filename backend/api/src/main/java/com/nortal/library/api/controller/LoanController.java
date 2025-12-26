@@ -175,7 +175,12 @@ public class LoanController {
                   @ExampleObject(
                       name = "Not borrower",
                       value = "{\"ok\": false, \"reason\": \"NOT_BORROWER\"}",
-                      description = "Only current borrower can extend")
+                      description = "Only current borrower can extend"),
+                  @ExampleObject(
+                      name = "Max extension reached",
+                      value = "{\"ok\": false, \"reason\": \"MAX_EXTENSION_REACHED\"}",
+                      description =
+                          "Extension would exceed maximum limit (90 days from first due date)")
                 }))
   })
   public ResultResponse extend(@RequestBody @Valid LoanExtensionRequest request) {

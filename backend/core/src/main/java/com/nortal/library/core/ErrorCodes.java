@@ -54,6 +54,12 @@ public final class ErrorCodes {
   /** Cannot extend loan because book has members in reservation queue. */
   public static final String RESERVATION_EXISTS = "RESERVATION_EXISTS";
 
+  /**
+   * Cannot extend loan because maximum extension limit (90 days from first due date) has been
+   * reached.
+   */
+  public static final String MAX_EXTENSION_REACHED = "MAX_EXTENSION_REACHED";
+
   // Delete operation errors
   /** Cannot delete book because it is currently on loan. */
   public static final String BOOK_LOANED = "BOOK_LOANED";

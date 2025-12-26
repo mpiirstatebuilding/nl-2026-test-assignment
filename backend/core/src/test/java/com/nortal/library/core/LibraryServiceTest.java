@@ -649,6 +649,120 @@ class LibraryServiceTest {
     verify(bookRepository, never()).save(any(Book.class));
   }
 
+  // ==================== EXTENSION LIMIT TESTS ====================
+
+  @Test
+  void extendLoan_SucceedsWhenWithinMaxExtensionLimit() {
+    // Given: Book loaned with firstDueDate 14 days from now, extending by 50 days (total 64
+    // days)
+    LocalDate firstDue = LocalDate.now().plusDays(14);
+    testBook.setLoanedTo("m1");
+    testBook.setDueDate(firstDue);
+    testBook.setFirstDueDate(firstDue);
+    when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+    when(memberRepository.existsById("m1")).thenReturn(true);
+
+    // When: Extend by 50 days (total 64 days from first due date, under 90-day limit)
+    Result result = service.extendLoan("b1", "m1", 50);
+
+    // Then: Should succeed
+    assertThat(result.ok()).isTrue();
+    assertThat(testBook.getDueDate()).isEqualTo(firstDue.plusDays(50));
+    verify(bookRepository).save(testBook);
+  }
+
+  @Test
+  void extendLoan_FailsWhenExceedsMaxExtensionLimit() {
+    // Given: Book loaned with firstDueDate 14 days from now
+    LocalDate firstDue = LocalDate.now().plusDays(14);
+    testBook.setLoanedTo("m1");
+    testBook.setDueDate(firstDue);
+    testBook.setFirstDueDate(firstDue);
+    when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+    when(memberRepository.existsById("m1")).thenReturn(true);
+
+    // When: Try to extend by 91 days (new due = firstDue + 91, exceeds 90-day limit)
+    Result result = service.extendLoan("b1", "m1", 91);
+
+    // Then: Should fail with MAX_EXTENSION_REACHED
+    assertThat(result.ok()).isFalse();
+    assertThat(result.reason()).isEqualTo("MAX_EXTENSION_REACHED");
+    verify(bookRepository, never()).save(any(Book.class));
+  }
+
+  @Test
+  void extendLoan_AllowsExtensionExactlyAt90DayLimit() {
+    // Given: Book loaned with firstDueDate 14 days from now
+    LocalDate firstDue = LocalDate.now().plusDays(14);
+    testBook.setLoanedTo("m1");
+    testBook.setDueDate(firstDue);
+    testBook.setFirstDueDate(firstDue);
+    when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+    when(memberRepository.existsById("m1")).thenReturn(true);
+
+    // When: Extend by 90 days (new due = firstDue + 90, exactly at limit)
+    Result result = service.extendLoan("b1", "m1", 90);
+
+    // Then: Should succeed (90 days is the maximum, not exceeding)
+    assertThat(result.ok()).isTrue();
+    assertThat(testBook.getDueDate()).isEqualTo(firstDue.plusDays(90));
+    verify(bookRepository).save(testBook);
+  }
+
+  @Test
+  void extendLoan_FailsWhenOneDayOverMaxExtensionLimit() {
+    // Given: Book loaned with firstDueDate 14 days from now
+    LocalDate firstDue = LocalDate.now().plusDays(14);
+    testBook.setLoanedTo("m1");
+    testBook.setDueDate(firstDue);
+    testBook.setFirstDueDate(firstDue);
+    when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+    when(memberRepository.existsById("m1")).thenReturn(true);
+
+    // When: Try to extend by 91 days (new due = firstDue + 91, one day over 90-day limit)
+    Result result = service.extendLoan("b1", "m1", 91);
+
+    // Then: Should fail
+    assertThat(result.ok()).isFalse();
+    assertThat(result.reason()).isEqualTo("MAX_EXTENSION_REACHED");
+    verify(bookRepository, never()).save(any(Book.class));
+  }
+
+  @Test
+  void borrowBook_SetsFirstDueDateWhenBorrowing() {
+    // Given: Book available, member eligible
+    when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+    when(memberRepository.existsById("m1")).thenReturn(true);
+    when(bookRepository.countByLoanedTo("m1")).thenReturn(0L);
+
+    // When: Member borrows the book
+    Result result = service.borrowBook("b1", "m1");
+
+    // Then: firstDueDate should be set to the same value as dueDate
+    assertThat(result.ok()).isTrue();
+    assertThat(testBook.getFirstDueDate()).isNotNull();
+    assertThat(testBook.getFirstDueDate()).isEqualTo(testBook.getDueDate());
+    verify(bookRepository).save(testBook);
+  }
+
+  @Test
+  void returnBook_ClearsFirstDueDateWhenReturning() {
+    // Given: Book loaned with firstDueDate set
+    LocalDate firstDue = LocalDate.now().plusDays(14);
+    testBook.setLoanedTo("m1");
+    testBook.setDueDate(firstDue);
+    testBook.setFirstDueDate(firstDue);
+    when(bookRepository.findById("b1")).thenReturn(Optional.of(testBook));
+
+    // When: Book is returned
+    ResultWithNext result = service.returnBook("b1", "m1");
+
+    // Then: firstDueDate should be cleared
+    assertThat(result.ok()).isTrue();
+    assertThat(testBook.getFirstDueDate()).isNull();
+    verify(bookRepository).save(testBook);
+  }
+
   @Test
   void createBook_FailsWhenIdAlreadyExists() {
     // Given: Book with ID "b1" already exists

@@ -241,6 +241,106 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void extendLoan_SucceedsWithinMaxExtensionLimit() {
+    // Borrow a book (14 day initial loan)
+    ResultResponse borrow =
+        rest.postForObject(url("/api/borrow"), new BorrowRequest("b3", "m1"), ResultResponse.class);
+    assertThat(borrow.ok()).isTrue();
+
+    // Extend by 50 days (total 64 days from first due date, under 90-day limit)
+    ResultResponse extended =
+        rest.postForObject(
+            url("/api/extend"), new LoanExtensionRequest("b3", "m1", 50), ResultResponse.class);
+    assertThat(extended.ok()).isTrue();
+
+    // Verify the extension succeeded
+    BooksResponse afterExtend = rest.getForObject(url("/api/books"), BooksResponse.class);
+    BookResponse book =
+        afterExtend.items().stream().filter(b -> b.id().equals("b3")).findFirst().orElseThrow();
+    assertThat(book.dueDate()).isNotNull();
+  }
+
+  @Test
+  void extendLoan_FailsWhenExceedsMaxExtensionLimit() {
+    // Borrow a book (14 day initial loan, firstDueDate = today + 14)
+    ResultResponse borrow =
+        rest.postForObject(url("/api/borrow"), new BorrowRequest("b3", "m1"), ResultResponse.class);
+    assertThat(borrow.ok()).isTrue();
+
+    // Try to extend by 91 days (firstDueDate + 91 = 105 days from today, exceeds 90-day limit
+    // from firstDueDate)
+    ResultResponse extended =
+        rest.postForObject(
+            url("/api/extend"), new LoanExtensionRequest("b3", "m1", 91), ResultResponse.class);
+    assertThat(extended.ok()).isFalse();
+    assertThat(extended.reason()).isEqualTo("MAX_EXTENSION_REACHED");
+  }
+
+  @Test
+  void extendLoan_MultipleExtensionsAccumulateTowardsLimit() {
+    // Borrow a book (14 day initial loan, firstDueDate = today + 14, dueDate = today + 14)
+    ResultResponse borrow =
+        rest.postForObject(url("/api/borrow"), new BorrowRequest("b3", "m1"), ResultResponse.class);
+    assertThat(borrow.ok()).isTrue();
+
+    // First extension: 30 days (dueDate becomes today + 44, which is 30 days from firstDueDate)
+    ResultResponse firstExtend =
+        rest.postForObject(
+            url("/api/extend"), new LoanExtensionRequest("b3", "m1", 30), ResultResponse.class);
+    assertThat(firstExtend.ok()).isTrue();
+
+    // Second extension: 30 days (dueDate becomes today + 74, which is 60 days from firstDueDate)
+    ResultResponse secondExtend =
+        rest.postForObject(
+            url("/api/extend"), new LoanExtensionRequest("b3", "m1", 30), ResultResponse.class);
+    assertThat(secondExtend.ok()).isTrue();
+
+    // Third extension: 31 days (would be today + 105, which is 91 days from firstDueDate,
+    // exceeds 90-day limit)
+    ResultResponse thirdExtend =
+        rest.postForObject(
+            url("/api/extend"), new LoanExtensionRequest("b3", "m1", 31), ResultResponse.class);
+    assertThat(thirdExtend.ok()).isFalse();
+    assertThat(thirdExtend.reason()).isEqualTo("MAX_EXTENSION_REACHED");
+  }
+
+  @Test
+  void extendLoan_AllowsExtensionExactlyAt90DayLimit() {
+    // Borrow a book (14 day initial loan, firstDueDate = today + 14)
+    ResultResponse borrow =
+        rest.postForObject(url("/api/borrow"), new BorrowRequest("b3", "m1"), ResultResponse.class);
+    assertThat(borrow.ok()).isTrue();
+
+    // Extend by 90 days (dueDate becomes today + 104, which is exactly 90 days from firstDueDate)
+    ResultResponse extended =
+        rest.postForObject(
+            url("/api/extend"), new LoanExtensionRequest("b3", "m1", 90), ResultResponse.class);
+    assertThat(extended.ok()).isTrue();
+
+    // Verify the extension succeeded
+    BooksResponse afterExtend = rest.getForObject(url("/api/books"), BooksResponse.class);
+    BookResponse book =
+        afterExtend.items().stream().filter(b -> b.id().equals("b3")).findFirst().orElseThrow();
+    assertThat(book.dueDate()).isNotNull();
+  }
+
+  @Test
+  void extendLoan_CannotExtendIfReservationQueueExists() {
+    // Borrow a book
+    rest.postForObject(url("/api/borrow"), new BorrowRequest("b3", "m1"), ResultResponse.class);
+
+    // Another member reserves the book (creates a queue)
+    rest.postForObject(url("/api/reserve"), new ReserveRequest("b3", "m2"), ResultResponse.class);
+
+    // Try to extend (should fail because others are waiting)
+    ResultResponse extended =
+        rest.postForObject(
+            url("/api/extend"), new LoanExtensionRequest("b3", "m1", 7), ResultResponse.class);
+    assertThat(extended.ok()).isFalse();
+    assertThat(extended.reason()).isEqualTo("RESERVATION_EXISTS");
+  }
+
+  @Test
   void searchReturnsFilteredResults() {
     rest.postForObject(
         url("/api/books"),

@@ -68,6 +68,20 @@ public class Book {
   private LocalDate dueDate;
 
   /**
+   * Original due date when the book was first loaned (before any extensions).
+   *
+   * <p>Used to enforce maximum extension limits. When a book is borrowed, both dueDate and
+   * firstDueDate are set to the same value (today + DEFAULT_LOAN_DAYS). When extended, only dueDate
+   * changes, keeping firstDueDate as the anchor point.
+   *
+   * <p>When null, the book is not currently on loan or has not been loaned yet.
+   *
+   * <p><b>Note:</b> This field is internal to the backend and is not exposed through API responses.
+   */
+  @Column(name = "first_due_date")
+  private LocalDate firstDueDate;
+
+  /**
    * FIFO queue of member IDs waiting to borrow this book.
    *
    * <p>Members are added to the end of the queue when they reserve the book. The member at position

@@ -7,6 +7,7 @@ import com.nortal.library.core.domain.Member;
 import com.nortal.library.core.port.BookRepository;
 import com.nortal.library.core.port.MemberRepository;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +38,9 @@ public class LibraryService {
 
   /** Default loan period in days. */
   private static final int DEFAULT_LOAN_DAYS = 14;
+
+  /** Maximum total extension period in days from first due date (approximately 3 months). */
+  private static final int MAX_EXTENSION_DAYS = 90;
 
   /** Index of the head (first priority) position in the reservation queue. */
   private static final int QUEUE_HEAD_POSITION = 0;
@@ -100,7 +104,9 @@ public class LibraryService {
     }
 
     entity.setLoanedTo(memberId);
-    entity.setDueDate(LocalDate.now().plusDays(DEFAULT_LOAN_DAYS));
+    LocalDate initialDueDate = LocalDate.now().plusDays(DEFAULT_LOAN_DAYS);
+    entity.setDueDate(initialDueDate);
+    entity.setFirstDueDate(initialDueDate); // Set anchor point for extension limits
     bookRepository.save(entity);
     return Result.success();
   }
@@ -144,6 +150,7 @@ public class LibraryService {
     // Clear the current loan
     entity.setLoanedTo(null);
     entity.setDueDate(null);
+    entity.setFirstDueDate(null); // Clear extension anchor point
 
     // Process reservation queue: find first eligible member and loan to them automatically
     String nextMemberId = processReservationQueue(entity);
@@ -170,7 +177,9 @@ public class LibraryService {
       if (memberRepository.existsById(candidateMemberId) && canMemberBorrow(candidateMemberId)) {
         // Eligible member found - loan book to them automatically
         book.setLoanedTo(candidateMemberId);
-        book.setDueDate(LocalDate.now().plusDays(DEFAULT_LOAN_DAYS));
+        LocalDate initialDueDate = LocalDate.now().plusDays(DEFAULT_LOAN_DAYS);
+        book.setDueDate(initialDueDate);
+        book.setFirstDueDate(initialDueDate); // Set anchor point for extension limits
         book.getReservationQueue().remove(QUEUE_HEAD_POSITION);
         return candidateMemberId;
       } else {
@@ -223,7 +232,9 @@ public class LibraryService {
     // If book is available and member is eligible, loan it immediately
     if (entity.getLoanedTo() == null && canMemberBorrow(memberId)) {
       entity.setLoanedTo(memberId);
-      entity.setDueDate(LocalDate.now().plusDays(DEFAULT_LOAN_DAYS));
+      LocalDate initialDueDate = LocalDate.now().plusDays(DEFAULT_LOAN_DAYS);
+      entity.setDueDate(initialDueDate);
+      entity.setFirstDueDate(initialDueDate); // Set anchor point for extension limits
       bookRepository.save(entity);
       return Result.success();
     }
@@ -336,6 +347,14 @@ public class LibraryService {
         entity.getDueDate() == null
             ? LocalDate.now().plusDays(DEFAULT_LOAN_DAYS)
             : entity.getDueDate();
+    // Check if extension would exceed maximum extension limit (90 days from first due date)
+    if (entity.getFirstDueDate() != null) {
+      LocalDate newDueDate = baseDate.plusDays(days);
+      long totalDaysFromFirst = ChronoUnit.DAYS.between(entity.getFirstDueDate(), newDueDate);
+      if (totalDaysFromFirst > MAX_EXTENSION_DAYS) {
+        return Result.failure(MAX_EXTENSION_REACHED);
+      }
+    }
     entity.setDueDate(baseDate.plusDays(days));
     bookRepository.save(entity);
     return Result.success();
