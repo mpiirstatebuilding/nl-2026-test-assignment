@@ -7,7 +7,7 @@
 ## TL;DR for Graders
 
 ✅ **All assignment requirements implemented**
-✅ **36 automated tests passing**
+✅ **38 automated tests passing**
 ✅ **Code formatted with Spotless**
 ✅ **100% AI-assisted development**
 ✅ **Production-ready with additional enhancements**
@@ -45,8 +45,9 @@
 | **Performance**: Database queries | 10x-100x faster for large datasets |
 | **Security**: Authorization checks | Prevent unauthorized returns/extensions |
 | **Data Integrity**: Delete safeguards | Prevent orphaned data and inconsistencies |
+| **Duplicate Prevention**: ID validation | Prevent creating duplicate books/members |
 | **Documentation**: Swagger/JavaDoc | Complete API documentation |
-| **Testing**: 36 test cases | Comprehensive coverage |
+| **Testing**: 38 test cases | Comprehensive coverage |
 | **Frontend**: UI improvements | Better testing experience |
 
 ---
@@ -123,14 +124,14 @@ long count = bookRepository.countByLoanedTo(memberId);
 $ ./gradlew test
 
 BUILD SUCCESSFUL in 8s
-36 tests completed, 36 passed, 0 failed
+38 tests completed, 38 passed, 0 failed
 ```
 
 **Coverage**:
-- 21 unit tests (LibraryServiceTest.java)
+- 23 unit tests (LibraryServiceTest.java)
 - 15 integration tests (ApiIntegrationTest.java)
 - All assignment requirements validated
-- Edge cases and security scenarios tested
+- Edge cases, security scenarios, and duplicate prevention tested
 
 ---
 
@@ -204,10 +205,11 @@ GET  /api/members/{id}/summary  # Member's loans + reservations
 - [x] Performance optimizations (database queries)
 - [x] Security authorization checks
 - [x] Data integrity safeguards (delete operations)
+- [x] Duplicate ID prevention (createBook, createMember validation)
 - [x] Code quality & readability (named constants, inline comments, ErrorCodes constants)
 - [x] Comprehensive JavaDoc (domain entities, DTOs, ErrorCodes)
 - [x] Swagger/OpenAPI documentation
-- [x] Extended test coverage (36 tests)
+- [x] Extended test coverage (38 tests)
 - [x] Frontend UI improvements
 - [x] Repository hygiene
 
@@ -231,7 +233,7 @@ GET  /api/members/{id}/summary  # Member's loans + reservations
 
 - ✅ All assignment requirements implemented
 - ✅ API contract unchanged
-- ✅ `./gradlew test` passes (36/36 tests)
+- ✅ `./gradlew test` passes (38/38 tests)
 - ✅ `./gradlew spotlessApply` applied
 - ✅ Backend runs (`./gradlew :api:bootRun`)
 - ✅ Frontend works (`npm start`)

@@ -374,6 +374,10 @@ public class LibraryService {
     if (id == null || title == null) {
       return Result.failure(INVALID_REQUEST);
     }
+    // Check if book with this ID already exists
+    if (bookRepository.existsById(id)) {
+      return Result.failure(BOOK_ALREADY_EXISTS);
+    }
     bookRepository.save(new Book(id, title));
     return Result.success();
   }
@@ -429,6 +433,10 @@ public class LibraryService {
   public Result createMember(String id, String name) {
     if (id == null || name == null) {
       return Result.failure(INVALID_REQUEST);
+    }
+    // Check if member with this ID already exists
+    if (memberRepository.existsById(id)) {
+      return Result.failure(MEMBER_ALREADY_EXISTS);
     }
     memberRepository.save(new Member(id, name));
     return Result.success();

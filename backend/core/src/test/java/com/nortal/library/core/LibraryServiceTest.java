@@ -648,4 +648,32 @@ class LibraryServiceTest {
     assertThat(result.reason()).isEqualTo("RESERVATION_EXISTS");
     verify(bookRepository, never()).save(any(Book.class));
   }
+
+  @Test
+  void createBook_FailsWhenIdAlreadyExists() {
+    // Given: Book with ID "b1" already exists
+    when(bookRepository.existsById("b1")).thenReturn(true);
+
+    // When: Attempt to create another book with same ID
+    Result result = service.createBook("b1", "Another Title");
+
+    // Then: Should fail with BOOK_ALREADY_EXISTS
+    assertThat(result.ok()).isFalse();
+    assertThat(result.reason()).isEqualTo("BOOK_ALREADY_EXISTS");
+    verify(bookRepository, never()).save(any(Book.class));
+  }
+
+  @Test
+  void createMember_FailsWhenIdAlreadyExists() {
+    // Given: Member with ID "m1" already exists
+    when(memberRepository.existsById("m1")).thenReturn(true);
+
+    // When: Attempt to create another member with same ID
+    Result result = service.createMember("m1", "Another Name");
+
+    // Then: Should fail with MEMBER_ALREADY_EXISTS
+    assertThat(result.ok()).isFalse();
+    assertThat(result.reason()).isEqualTo("MEMBER_ALREADY_EXISTS");
+    verify(memberRepository, never()).save(any(Member.class));
+  }
 }

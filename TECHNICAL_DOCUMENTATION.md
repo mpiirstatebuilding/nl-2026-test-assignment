@@ -526,7 +526,7 @@ GET    /api/overdue                # List overdue books
 ### Testing
 - All business logic must have unit tests
 - Integration tests for API endpoints
-- Test coverage: 36 tests (21 unit + 15 integration)
+- Test coverage: 38 tests (23 unit + 15 integration)
 - All tests passing before commit
 
 ---

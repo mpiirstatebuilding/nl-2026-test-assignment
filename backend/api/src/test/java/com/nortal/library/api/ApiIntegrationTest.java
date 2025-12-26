@@ -589,6 +589,34 @@ class ApiIntegrationTest {
     assertThat(book.reservationQueue()).isEmpty();
   }
 
+  @Test
+  void createBook_FailsWhenIdAlreadyExists() {
+    // Given: Seed data already has book with ID "b1"
+    // When: Attempt to create another book with same ID
+    ResultResponse result =
+        rest.postForObject(
+            url("/api/books"), new CreateBookRequest("b1", "Another Title"), ResultResponse.class);
+
+    // Then: Should fail with BOOK_ALREADY_EXISTS
+    assertThat(result.ok()).isFalse();
+    assertThat(result.reason()).isEqualTo("BOOK_ALREADY_EXISTS");
+  }
+
+  @Test
+  void createMember_FailsWhenIdAlreadyExists() {
+    // Given: Seed data already has member with ID "m1"
+    // When: Attempt to create another member with same ID
+    ResultResponse result =
+        rest.postForObject(
+            url("/api/members"),
+            new CreateMemberRequest("m1", "Another Name"),
+            ResultResponse.class);
+
+    // Then: Should fail with MEMBER_ALREADY_EXISTS
+    assertThat(result.ok()).isFalse();
+    assertThat(result.reason()).isEqualTo("MEMBER_ALREADY_EXISTS");
+  }
+
   private String url(String path) {
     return "http://localhost:" + port + path;
   }

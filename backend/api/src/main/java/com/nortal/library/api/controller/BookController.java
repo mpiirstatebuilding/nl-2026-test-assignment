@@ -158,7 +158,9 @@ public class BookController {
 
   @Operation(
       summary = "Create new book",
-      description = "Add a new book to the library catalog. Book ID must be unique.")
+      description =
+          "Add a new book to the library catalog. Book ID must be unique and not already exist in"
+              + " the system.")
   @ApiResponses({
     @ApiResponse(
         responseCode = "200",
@@ -179,21 +181,31 @@ public class BookController {
                         """))),
     @ApiResponse(
         responseCode = "400",
-        description = "Invalid request or book ID already exists",
+        description = "Invalid request (missing ID/title) or book ID already exists",
         content =
             @Content(
                 mediaType = "application/json",
                 schema = @Schema(implementation = ResultResponse.class),
-                examples =
-                    @ExampleObject(
-                        name = "Book already exists",
-                        value =
-                            """
+                examples = {
+                  @ExampleObject(
+                      name = "Book already exists",
+                      value =
+                          """
+                        {
+                          "ok": false,
+                          "reason": "BOOK_ALREADY_EXISTS"
+                        }
+                        """),
+                  @ExampleObject(
+                      name = "Invalid request",
+                      value =
+                          """
                         {
                           "ok": false,
                           "reason": "INVALID_REQUEST"
                         }
-                        """)))
+                        """)
+                }))
   })
   @PostMapping
   public ResultResponse create(@RequestBody @Valid CreateBookRequest request) {

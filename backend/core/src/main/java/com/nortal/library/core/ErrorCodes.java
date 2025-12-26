@@ -68,6 +68,13 @@ public final class ErrorCodes {
   /** Request contains invalid or missing required fields. */
   public static final String INVALID_REQUEST = "INVALID_REQUEST";
 
+  // Creation conflict errors
+  /** Cannot create book because ID already exists. */
+  public static final String BOOK_ALREADY_EXISTS = "BOOK_ALREADY_EXISTS";
+
+  /** Cannot create member because ID already exists. */
+  public static final String MEMBER_ALREADY_EXISTS = "MEMBER_ALREADY_EXISTS";
+
   /** Private constructor to prevent instantiation of utility class. */
   private ErrorCodes() {
     throw new UnsupportedOperationException("Utility class - do not instantiate");

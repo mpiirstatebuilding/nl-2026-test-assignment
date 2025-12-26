@@ -155,6 +155,37 @@ Added unit tests for:
 
 **Impact**: Code is now self-documenting, easier to understand for future maintainers, and addresses SonarQube code quality concerns
 
+### I. Production Improvements - Duplicate ID Prevention 🆔
+**Files**: LibraryService.java, ErrorCodes.java, BookController.java, MemberController.java, DataLoader.java, tests
+
+**What**: Added validation to prevent creating books/members with duplicate IDs
+
+**Implementation**:
+1. **Error Codes** (`ErrorCodes.java`):
+   - Added `BOOK_ALREADY_EXISTS` constant
+   - Added `MEMBER_ALREADY_EXISTS` constant
+
+2. **Business Logic** (`LibraryService.java`):
+   - `createBook()`: Added `existsById()` check before saving, returns `BOOK_ALREADY_EXISTS` if duplicate
+   - `createMember()`: Added `existsById()` check before saving, returns `MEMBER_ALREADY_EXISTS` if duplicate
+
+3. **API Documentation** (`BookController.java`, `MemberController.java`):
+   - Updated Swagger `@ApiResponse` annotations with examples for duplicate ID errors
+   - Added descriptions clarifying ID uniqueness requirement
+
+4. **Data Loader** (`DataLoader.java`):
+   - Modified to clear all existing data before loading seed data
+   - Critical fix: H2 is configured with `DB_CLOSE_DELAY=-1`, causing database to persist across `@DirtiesContext` resets in tests
+   - Solution: Explicitly delete all books and members before re-seeding to ensure clean state
+   - Added comprehensive comments explaining the architectural decision
+
+5. **Test Coverage**:
+   - Added unit tests: `createBook_FailsWhenIdAlreadyExists()`, `createMember_FailsWhenIdAlreadyExists()`
+   - Added integration tests: Same test names in `ApiIntegrationTest.java`
+   - Tests verify proper error codes and that repository save is never called on duplicate
+
+**Impact**: Prevents data corruption from duplicate IDs, provides clear error messages to API consumers, ensures test isolation
+
 ---
 
 ## Development Methodology
@@ -184,8 +215,8 @@ Added unit tests for:
    - Comprehensive JavaDoc throughout
    - Replaced 43 magic string literals with ErrorCodes constants
 2. **`backend/core/src/main/java/com/nortal/library/core/ErrorCodes.java`**
-   - Created constants class with 14 error code constants
-   - Organized by category (entity not found, borrow, reservation, extension, delete, validation errors)
+   - Created constants class with 16 error code constants (added BOOK_ALREADY_EXISTS, MEMBER_ALREADY_EXISTS)
+   - Organized by category (entity not found, borrow, reservation, extension, delete, creation conflict, validation errors)
    - Comprehensive JavaDoc explaining purpose and usage
 
 ### Repository Layer (Performance)
@@ -193,23 +224,24 @@ Added unit tests for:
 4. **`backend/persistence/src/main/java/com/nortal/library/persistence/jpa/JpaBookRepository.java`** - Implemented queries
 
 ### API Layer (Security & Documentation)
-5. **`backend/api/src/main/java/com/nortal/library/api/controller/BookController.java`** - Swagger annotations
-6. **`backend/api/src/main/java/com/nortal/library/api/controller/MemberController.java`** - Swagger annotations
+5. **`backend/api/src/main/java/com/nortal/library/api/controller/BookController.java`** - Swagger annotations, duplicate error examples
+6. **`backend/api/src/main/java/com/nortal/library/api/controller/MemberController.java`** - Swagger annotations, duplicate error examples
 7. **`backend/api/src/main/java/com/nortal/library/api/controller/LoanController.java`** - Swagger annotations
 8. **`backend/api/src/main/java/com/nortal/library/api/config/OpenApiConfig.java`** - Created Swagger config
+9. **`backend/api/src/main/java/com/nortal/library/api/config/DataLoader.java`** - Clear existing data before seed, fixes H2 persistence issue
 
 ### Testing
-9. **`backend/api/src/test/java/com/nortal/library/api/ApiIntegrationTest.java`** - 13 new tests
-10. **`backend/core/src/test/java/com/nortal/library/core/LibraryServiceTest.java`** - Security test cases
+10. **`backend/api/src/test/java/com/nortal/library/api/ApiIntegrationTest.java`** - 15 new tests (added duplicate ID tests)
+11. **`backend/core/src/test/java/com/nortal/library/core/LibraryServiceTest.java`** - Security test cases + duplicate ID tests
 
 ### Frontend (Optional)
-11-14. **`frontend/src/app/**/*`** - UI improvements for testing
+12-15. **`frontend/src/app/**/*`** - UI improvements for testing
 
 ### Documentation
-15. **`.gitignore`** - Repository hygiene
-16. **`AI_USAGE.md`** - This file
-17. **`TECHNICAL_DOCUMENTATION.md`** - Comprehensive technical details
-18. **`SUMMARY.md`** - Quick reference guide
+16. **`.gitignore`** - Repository hygiene
+17. **`AI_USAGE.md`** - This file
+18. **`TECHNICAL_DOCUMENTATION.md`** - Comprehensive technical details
+19. **`SUMMARY.md`** - Quick reference guide
 
 ---
 
@@ -219,7 +251,7 @@ Added unit tests for:
 ```bash
 ./gradlew test
 # BUILD SUCCESSFUL
-# All 36 tests passed (21 unit + 15 integration)
+# All 38 tests passed (23 unit + 15 integration)
 ```
 
 ### Code Formatting

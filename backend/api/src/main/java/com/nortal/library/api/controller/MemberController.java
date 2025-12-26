@@ -158,7 +158,9 @@ public class MemberController {
 
   @Operation(
       summary = "Create new member",
-      description = "Add a new member to the library. Member ID must be unique.")
+      description =
+          "Add a new member to the library. Member ID must be unique and not already exist in the"
+              + " system.")
   @ApiResponses({
     @ApiResponse(
         responseCode = "200",
@@ -179,21 +181,31 @@ public class MemberController {
                         """))),
     @ApiResponse(
         responseCode = "400",
-        description = "Invalid request or member ID already exists",
+        description = "Invalid request (missing ID/name) or member ID already exists",
         content =
             @Content(
                 mediaType = "application/json",
                 schema = @Schema(implementation = ResultResponse.class),
-                examples =
-                    @ExampleObject(
-                        name = "Member already exists",
-                        value =
-                            """
+                examples = {
+                  @ExampleObject(
+                      name = "Member already exists",
+                      value =
+                          """
+                        {
+                          "ok": false,
+                          "reason": "MEMBER_ALREADY_EXISTS"
+                        }
+                        """),
+                  @ExampleObject(
+                      name = "Invalid request",
+                      value =
+                          """
                         {
                           "ok": false,
                           "reason": "INVALID_REQUEST"
                         }
-                        """)))
+                        """)
+                }))
   })
   @PostMapping
   public ResultResponse create(@RequestBody @Valid CreateMemberRequest request) {
