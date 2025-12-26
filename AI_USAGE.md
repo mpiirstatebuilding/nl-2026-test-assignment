@@ -128,6 +128,33 @@ Added unit tests for:
 - Added exclusions for build artifacts and temporary files
 - Removed untracked files (`package-lock.json` at root, `.output.txt`)
 
+### H. Code Quality & Readability Improvements ✨
+**Files**: Domain entities, DTOs, and service layer
+
+**1. Comprehensive JavaDoc Documentation**
+- **Book.java**: Added detailed class and field-level documentation explaining the two states (Available/Loaned), FIFO queue behavior, and design decisions
+- **Member.java**: Added JavaDoc explaining member constraints, loan limits, and why loan/reservation data is derived
+- **BorrowRequest.java**: Added DTO documentation with parameter descriptions
+
+**2. Named Constants for Magic Numbers**
+- **LibraryService.java**: Added `QUEUE_HEAD_POSITION = 0` constant to replace magic number
+- Improves code readability by making queue head access intent explicit
+- All queue operations now use the named constant instead of literal `0`
+
+**3. Enhanced Inline Comments**
+- Added clarifying comments in `processReservationQueue()`: "Eligible member found - loan book to them automatically"
+- Added terminal comment: "No eligible member found in queue"
+- Comments now better explain the "why" behind complex business logic
+
+**4. Error Code Constants (SonarQube Fix)**
+- **ErrorCodes.java**: Created constants class with 14 error code constants organized by category
+- **LibraryService.java**: Replaced all 43 magic string literals with ErrorCodes constants
+- Added static import `import static com.nortal.library.core.ErrorCodes.*;` for cleaner code
+- Benefits: Type safety, prevents typos, easier refactoring, maintainability
+- Example: `Result.failure("BOOK_NOT_FOUND")` → `Result.failure(BOOK_NOT_FOUND)`
+
+**Impact**: Code is now self-documenting, easier to understand for future maintainers, and addresses SonarQube code quality concerns
+
 ---
 
 ## Development Methodology
@@ -155,29 +182,34 @@ Added unit tests for:
    - 6 methods fixed (borrowBook, returnBook, reserveBook, canMemberBorrow, deleteBook, deleteMember)
    - 1 helper method added (processReservationQueue)
    - Comprehensive JavaDoc throughout
+   - Replaced 43 magic string literals with ErrorCodes constants
+2. **`backend/core/src/main/java/com/nortal/library/core/ErrorCodes.java`**
+   - Created constants class with 14 error code constants
+   - Organized by category (entity not found, borrow, reservation, extension, delete, validation errors)
+   - Comprehensive JavaDoc explaining purpose and usage
 
 ### Repository Layer (Performance)
-2. **`backend/core/src/main/java/com/nortal/library/core/port/BookRepository.java`** - Added query methods
-3. **`backend/persistence/src/main/java/com/nortal/library/persistence/jpa/JpaBookRepository.java`** - Implemented queries
+3. **`backend/core/src/main/java/com/nortal/library/core/port/BookRepository.java`** - Added query methods
+4. **`backend/persistence/src/main/java/com/nortal/library/persistence/jpa/JpaBookRepository.java`** - Implemented queries
 
 ### API Layer (Security & Documentation)
-4. **`backend/api/src/main/java/com/nortal/library/api/controller/BookController.java`** - Swagger annotations
-5. **`backend/api/src/main/java/com/nortal/library/api/controller/MemberController.java`** - Swagger annotations
-6. **`backend/api/src/main/java/com/nortal/library/api/controller/LoanController.java`** - Swagger annotations
-7. **`backend/api/src/main/java/com/nortal/library/api/config/OpenApiConfig.java`** - Created Swagger config
+5. **`backend/api/src/main/java/com/nortal/library/api/controller/BookController.java`** - Swagger annotations
+6. **`backend/api/src/main/java/com/nortal/library/api/controller/MemberController.java`** - Swagger annotations
+7. **`backend/api/src/main/java/com/nortal/library/api/controller/LoanController.java`** - Swagger annotations
+8. **`backend/api/src/main/java/com/nortal/library/api/config/OpenApiConfig.java`** - Created Swagger config
 
 ### Testing
-8. **`backend/api/src/test/java/com/nortal/library/api/ApiIntegrationTest.java`** - 13 new tests
-9. **`backend/core/src/test/java/com/nortal/library/core/LibraryServiceTest.java`** - Security test cases
+9. **`backend/api/src/test/java/com/nortal/library/api/ApiIntegrationTest.java`** - 13 new tests
+10. **`backend/core/src/test/java/com/nortal/library/core/LibraryServiceTest.java`** - Security test cases
 
 ### Frontend (Optional)
-10-13. **`frontend/src/app/**/*`** - UI improvements for testing
+11-14. **`frontend/src/app/**/*`** - UI improvements for testing
 
 ### Documentation
-14. **`.gitignore`** - Repository hygiene
-15. **`AI_USAGE.md`** - This file
-16. **`TECHNICAL_DOCUMENTATION.md`** - Comprehensive technical details
-17. **`SUMMARY.md`** - Quick reference guide
+15. **`.gitignore`** - Repository hygiene
+16. **`AI_USAGE.md`** - This file
+17. **`TECHNICAL_DOCUMENTATION.md`** - Comprehensive technical details
+18. **`SUMMARY.md`** - Quick reference guide
 
 ---
 

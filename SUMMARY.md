@@ -204,7 +204,8 @@ GET  /api/members/{id}/summary  # Member's loans + reservations
 - [x] Performance optimizations (database queries)
 - [x] Security authorization checks
 - [x] Data integrity safeguards (delete operations)
-- [x] Comprehensive JavaDoc
+- [x] Code quality & readability (named constants, inline comments, ErrorCodes constants)
+- [x] Comprehensive JavaDoc (domain entities, DTOs, ErrorCodes)
 - [x] Swagger/OpenAPI documentation
 - [x] Extended test coverage (36 tests)
 - [x] Frontend UI improvements

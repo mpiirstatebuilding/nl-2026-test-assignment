@@ -510,14 +510,24 @@ GET    /api/overdue                # List overdue books
 - **Enforcement**: All code must pass `spotlessCheck` before commit
 
 ### Documentation
-- JavaDoc on all public methods
-- Business rules explained in comments
-- Performance notes where applicable
+- **JavaDoc**: Comprehensive class and method-level documentation
+  - Domain entities (Book.java, Member.java): Detailed state explanations and design notes
+  - Service methods: Parameters, return values, business rules, failure codes
+  - DTOs: Parameter descriptions and usage context
+- **Inline Comments**: Explain complex business logic and edge cases
+- **Performance Notes**: Document complexity and optimization opportunities
+
+### Code Readability
+- **Named Constants**: Replace magic numbers and strings (e.g., `QUEUE_HEAD_POSITION` instead of `0`, `ErrorCodes.BOOK_NOT_FOUND` instead of `"BOOK_NOT_FOUND"`)
+- **Error Code Constants**: Centralized error codes in `ErrorCodes.java` for type safety and maintainability
+- **Clear Variable Names**: Descriptive names like `candidateMemberId`, `firstInQueue`
+- **Comment Intent**: Comments explain "why" not "what"
 
 ### Testing
 - All business logic must have unit tests
 - Integration tests for API endpoints
-- Test coverage target: >80%
+- Test coverage: 36 tests (21 unit + 15 integration)
+- All tests passing before commit
 
 ---
 

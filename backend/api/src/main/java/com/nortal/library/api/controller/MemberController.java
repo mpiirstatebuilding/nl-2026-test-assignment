@@ -37,9 +37,7 @@ public class MemberController {
     this.libraryService = libraryService;
   }
 
-  @Operation(
-      summary = "Get all members",
-      description = "Returns a list of all library members")
+  @Operation(summary = "Get all members", description = "Returns a list of all library members")
   @ApiResponses({
     @ApiResponse(
         responseCode = "200",

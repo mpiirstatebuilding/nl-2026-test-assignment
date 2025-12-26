@@ -38,7 +38,8 @@ public class BookController {
 
   @Operation(
       summary = "Get all books",
-      description = "Returns a list of all books in the library with their current loan status and reservation queue")
+      description =
+          "Returns a list of all books in the library with their current loan status and reservation queue")
   @ApiResponses({
     @ApiResponse(
         responseCode = "200",

@@ -1,5 +1,7 @@
 package com.nortal.library.core;
 
+import static com.nortal.library.core.ErrorCodes.*;
+
 import com.nortal.library.core.domain.Book;
 import com.nortal.library.core.domain.Member;
 import com.nortal.library.core.port.BookRepository;
@@ -36,6 +38,9 @@ public class LibraryService {
   /** Default loan period in days. */
   private static final int DEFAULT_LOAN_DAYS = 14;
 
+  /** Index of the head (first priority) position in the reservation queue. */
+  private static final int QUEUE_HEAD_POSITION = 0;
+
   private final BookRepository bookRepository;
   private final MemberRepository memberRepository;
 
@@ -64,13 +69,13 @@ public class LibraryService {
   public Result borrowBook(String bookId, String memberId) {
     Optional<Book> book = bookRepository.findById(bookId);
     if (book.isEmpty()) {
-      return Result.failure("BOOK_NOT_FOUND");
+      return Result.failure(BOOK_NOT_FOUND);
     }
     if (!memberRepository.existsById(memberId)) {
-      return Result.failure("MEMBER_NOT_FOUND");
+      return Result.failure(MEMBER_NOT_FOUND);
     }
     if (!canMemberBorrow(memberId)) {
-      return Result.failure("BORROW_LIMIT");
+      return Result.failure(BORROW_LIMIT);
     }
     Book entity = book.get();
 
@@ -78,20 +83,20 @@ public class LibraryService {
     if (entity.getLoanedTo() != null) {
       // Check if the member trying to borrow is the current borrower
       if (memberId.equals(entity.getLoanedTo())) {
-        return Result.failure("ALREADY_BORROWED");
+        return Result.failure(ALREADY_BORROWED);
       } else {
-        return Result.failure("BOOK_UNAVAILABLE");
+        return Result.failure(BOOK_UNAVAILABLE);
       }
     }
 
     // Enforce reservation queue: only member at head of queue can borrow
     if (!entity.getReservationQueue().isEmpty()) {
-      String firstInQueue = entity.getReservationQueue().get(0);
+      String firstInQueue = entity.getReservationQueue().get(QUEUE_HEAD_POSITION);
       if (!memberId.equals(firstInQueue)) {
-        return Result.failure("RESERVED");
+        return Result.failure(RESERVED);
       }
       // Remove the member from queue since they're now borrowing
-      entity.getReservationQueue().remove(0);
+      entity.getReservationQueue().remove(QUEUE_HEAD_POSITION);
     }
 
     entity.setLoanedTo(memberId);
@@ -159,20 +164,21 @@ public class LibraryService {
    */
   private String processReservationQueue(Book book) {
     while (!book.getReservationQueue().isEmpty()) {
-      String candidateMemberId = book.getReservationQueue().get(0);
+      String candidateMemberId = book.getReservationQueue().get(QUEUE_HEAD_POSITION);
 
       // Check if candidate exists and is under borrow limit
       if (memberRepository.existsById(candidateMemberId) && canMemberBorrow(candidateMemberId)) {
-        // Loan to this member
+        // Eligible member found - loan book to them automatically
         book.setLoanedTo(candidateMemberId);
         book.setDueDate(LocalDate.now().plusDays(DEFAULT_LOAN_DAYS));
-        book.getReservationQueue().remove(0);
+        book.getReservationQueue().remove(QUEUE_HEAD_POSITION);
         return candidateMemberId;
       } else {
         // Skip ineligible member (deleted or at limit) and continue to next
-        book.getReservationQueue().remove(0);
+        book.getReservationQueue().remove(QUEUE_HEAD_POSITION);
       }
     }
+    // No eligible member found in queue
     return null;
   }
 
@@ -196,22 +202,22 @@ public class LibraryService {
   public Result reserveBook(String bookId, String memberId) {
     Optional<Book> book = bookRepository.findById(bookId);
     if (book.isEmpty()) {
-      return Result.failure("BOOK_NOT_FOUND");
+      return Result.failure(BOOK_NOT_FOUND);
     }
     if (!memberRepository.existsById(memberId)) {
-      return Result.failure("MEMBER_NOT_FOUND");
+      return Result.failure(MEMBER_NOT_FOUND);
     }
 
     Book entity = book.get();
 
     // Reject if member is currently borrowing this book
     if (memberId.equals(entity.getLoanedTo())) {
-      return Result.failure("ALREADY_BORROWED");
+      return Result.failure(ALREADY_BORROWED);
     }
 
     // Reject duplicate reservations
     if (entity.getReservationQueue().contains(memberId)) {
-      return Result.failure("ALREADY_RESERVED");
+      return Result.failure(ALREADY_RESERVED);
     }
 
     // If book is available and member is eligible, loan it immediately
@@ -238,16 +244,16 @@ public class LibraryService {
   public Result cancelReservation(String bookId, String memberId) {
     Optional<Book> book = bookRepository.findById(bookId);
     if (book.isEmpty()) {
-      return Result.failure("BOOK_NOT_FOUND");
+      return Result.failure(BOOK_NOT_FOUND);
     }
     if (!memberRepository.existsById(memberId)) {
-      return Result.failure("MEMBER_NOT_FOUND");
+      return Result.failure(MEMBER_NOT_FOUND);
     }
 
     Book entity = book.get();
     boolean removed = entity.getReservationQueue().remove(memberId);
     if (!removed) {
-      return Result.failure("NOT_RESERVED");
+      return Result.failure(NOT_RESERVED);
     }
     bookRepository.save(entity);
     return Result.success();
@@ -305,26 +311,26 @@ public class LibraryService {
 
   public Result extendLoan(String bookId, String memberId, int days) {
     if (days == 0) {
-      return Result.failure("INVALID_EXTENSION");
+      return Result.failure(INVALID_EXTENSION);
     }
     Optional<Book> book = bookRepository.findById(bookId);
     if (book.isEmpty()) {
-      return Result.failure("BOOK_NOT_FOUND");
+      return Result.failure(BOOK_NOT_FOUND);
     }
     if (!memberRepository.existsById(memberId)) {
-      return Result.failure("MEMBER_NOT_FOUND");
+      return Result.failure(MEMBER_NOT_FOUND);
     }
     Book entity = book.get();
     if (entity.getLoanedTo() == null) {
-      return Result.failure("NOT_LOANED");
+      return Result.failure(NOT_LOANED);
     }
     // Validate that the member extending is the current borrower (authorization check)
     if (!memberId.equals(entity.getLoanedTo())) {
-      return Result.failure("NOT_BORROWER");
+      return Result.failure(NOT_BORROWER);
     }
     // Cannot extend if book has reservations (others are waiting)
     if (!entity.getReservationQueue().isEmpty()) {
-      return Result.failure("RESERVATION_EXISTS");
+      return Result.failure(RESERVATION_EXISTS);
     }
     LocalDate baseDate =
         entity.getDueDate() == null
@@ -337,7 +343,7 @@ public class LibraryService {
 
   public MemberSummary memberSummary(String memberId) {
     if (!memberRepository.existsById(memberId)) {
-      return new MemberSummary(false, "MEMBER_NOT_FOUND", List.of(), List.of());
+      return new MemberSummary(false, MEMBER_NOT_FOUND, List.of(), List.of());
     }
     // Optimized: O(2) queries instead of O(n) scan
     List<Book> loans = bookRepository.findByLoanedTo(memberId);
@@ -366,7 +372,7 @@ public class LibraryService {
 
   public Result createBook(String id, String title) {
     if (id == null || title == null) {
-      return Result.failure("INVALID_REQUEST");
+      return Result.failure(INVALID_REQUEST);
     }
     bookRepository.save(new Book(id, title));
     return Result.success();
@@ -375,10 +381,10 @@ public class LibraryService {
   public Result updateBook(String id, String title) {
     Optional<Book> existing = bookRepository.findById(id);
     if (existing.isEmpty()) {
-      return Result.failure("BOOK_NOT_FOUND");
+      return Result.failure(BOOK_NOT_FOUND);
     }
     if (title == null) {
-      return Result.failure("INVALID_REQUEST");
+      return Result.failure(INVALID_REQUEST);
     }
     Book book = existing.get();
     book.setTitle(title);
@@ -402,18 +408,18 @@ public class LibraryService {
   public Result deleteBook(String id) {
     Optional<Book> existing = bookRepository.findById(id);
     if (existing.isEmpty()) {
-      return Result.failure("BOOK_NOT_FOUND");
+      return Result.failure(BOOK_NOT_FOUND);
     }
     Book book = existing.get();
 
     // Prevent deletion if book is currently loaned
     if (book.getLoanedTo() != null) {
-      return Result.failure("BOOK_LOANED");
+      return Result.failure(BOOK_LOANED);
     }
 
     // Prevent deletion if book has reservations
     if (!book.getReservationQueue().isEmpty()) {
-      return Result.failure("BOOK_RESERVED");
+      return Result.failure(BOOK_RESERVED);
     }
 
     bookRepository.delete(book);
@@ -422,7 +428,7 @@ public class LibraryService {
 
   public Result createMember(String id, String name) {
     if (id == null || name == null) {
-      return Result.failure("INVALID_REQUEST");
+      return Result.failure(INVALID_REQUEST);
     }
     memberRepository.save(new Member(id, name));
     return Result.success();
@@ -431,10 +437,10 @@ public class LibraryService {
   public Result updateMember(String id, String name) {
     Optional<Member> existing = memberRepository.findById(id);
     if (existing.isEmpty()) {
-      return Result.failure("MEMBER_NOT_FOUND");
+      return Result.failure(MEMBER_NOT_FOUND);
     }
     if (name == null) {
-      return Result.failure("INVALID_REQUEST");
+      return Result.failure(INVALID_REQUEST);
     }
     Member member = existing.get();
     member.setName(name);
@@ -458,13 +464,13 @@ public class LibraryService {
   public Result deleteMember(String id) {
     Optional<Member> existing = memberRepository.findById(id);
     if (existing.isEmpty()) {
-      return Result.failure("MEMBER_NOT_FOUND");
+      return Result.failure(MEMBER_NOT_FOUND);
     }
 
     // Check if member has active loans - must return books first
     // Optimized: O(1) query instead of O(n) scan
     if (bookRepository.existsByLoanedTo(id)) {
-      return Result.failure("MEMBER_HAS_LOANS");
+      return Result.failure(MEMBER_HAS_LOANS);
     }
 
     // Remove member from all reservation queues to maintain data integrity
