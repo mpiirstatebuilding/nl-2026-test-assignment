@@ -1375,9 +1375,705 @@ This didn't work because the problem was structural, not CSS-based.
 
 ---
 
+## Known Limitations & Future Enhancements
+
+This section documents current system limitations and recommended improvements for production deployment.
+
+### 1. Reservation Queue Processing
+
+#### Limitation: Unidirectional Auto-Loan Triggers
+
+**Current Behavior**:
+The system only automatically processes reservation queues when a **book is returned** (`processReservationQueue()`). It does not check when a **member gains capacity** after returning a different book.
+
+**Scenario Example**:
+1. Member m1 has 5 borrowed books (at `MAX_LOANS` limit)
+2. Book b1 is **available** (not loaned to anyone)
+3. Member m1 tries to **reserve** b1
+4. System validates: Book is available BUT member at capacity
+5. Member m1 added to b1's reservation queue (position 0)
+6. Member m1 **returns** book b2 → now has 4 active loans
+7. **Book b1 is still available, m1 is at queue head, m1 has capacity**
+8. **Result**: No automatic loan - member must manually click "Borrow"
+
+**Impact**: Minor UX inconvenience - member must remember to borrow their reserved book after gaining capacity.
+
+**Workaround**: The "Borrow" button appears automatically when member is at head of queue, making it a single click.
+
+**Production Recommendation**:
+
+**Option A: Two-Way Queue Processing (Recommended)**
+
+Implement bidirectional auto-loan logic:
+- **On book return** → Check if next reserver has capacity (current behavior) ✅
+- **On member return** → Check ALL of member's reservations for available books (new behavior)
+
+```java
+// In LibraryService.returnBook()
+private void processAvailableReservationsForMember(String memberId) {
+  if (!canMemberBorrow(memberId)) {
+    return; // Member still at limit
+  }
+
+  // Find all books where member is at head of queue AND book is available
+  List<Book> availableReservedBooks = bookRepository.findAll().stream()
+    .filter(book -> book.getLoanedTo() == null) // Book available
+    .filter(book -> !book.getReservationQueue().isEmpty())
+    .filter(book -> book.getReservationQueue().get(0).equals(memberId)) // Member at head
+    .toList();
+
+  if (availableReservedBooks.isEmpty()) {
+    return;
+  }
+
+  // Auto-loan the first available reserved book
+  Book bookToLoan = availableReservedBooks.get(0);
+  bookToLoan.setLoanedTo(memberId);
+  bookToLoan.setDueDate(LocalDate.now().plusDays(DEFAULT_LOAN_DAYS));
+  bookToLoan.getReservationQueue().remove(0);
+  bookRepository.save(bookToLoan);
+}
+```
+
+**API Impact**:
+- Return response would need to indicate auto-loaned book ID
+- Add `autoLoanedBookId` field to `ReturnResponse`
+- Backward compatible (new field is optional)
+
+**Benefits**:
+- Seamless UX - member gets reserved book immediately
+- Consistent with existing auto-loan philosophy
+- Reduces manual steps
+
+**Risks**:
+- Unexpected behavior if member has multiple reservations (which one to auto-loan?)
+- Need priority/ordering logic for reservations
+- More complex test scenarios
+
+**Option B: UI Notification (Lower Priority)**
+
+Keep current behavior but add visual indicator in frontend:
+
+```typescript
+hasAvailableReservations(): boolean {
+  if (!this.selectedMemberId) return false;
+  return this.books.some(book =>
+    book.loanedTo === null &&
+    book.reservationQueue.length > 0 &&
+    book.reservationQueue[0] === this.selectedMemberId
+  );
+}
+```
+
+```html
+<div class="info-banner" *ngIf="hasAvailableReservations()">
+  ℹ️ You have reserved books available for borrowing
+</div>
+```
+
+**Benefits**: No backend changes, simple implementation
+**Drawback**: Still requires manual action
+
+---
+
+### 2. Extension Limit Bypass
+
+**Current Behavior**:
+90-day extension limit is enforced **per modal session**, but users can reopen the modal and extend again, bypassing the cumulative 3-month limit.
+
+**Example**:
+- Initial due date: Jan 1, 2026 → Jan 15, 2026 (14 days)
+- Extend by 90 days → Apr 15, 2026
+- Reopen modal, extend by 90 days again → Jul 14, 2026
+- **Total extension**: 194 days from original (exceeds intended 3-month limit)
+
+**Root Cause**: No tracking of **original due date** when book is first loaned.
+
+**Production Recommendation**:
+
+Add `originalDueDate` field to Book entity and enforce cumulative limit:
+
+**Backend Changes**:
+1. Add `originalDueDate` field to `Book` entity
+2. Set `originalDueDate` when book first loaned in `borrowBook()`
+3. Calculate remaining allowance in `extendLoan()`:
+   ```java
+   long maxExtensionDays = 90; // 3 months
+   LocalDate maxAllowedDate = originalDueDate.plusDays(maxExtensionDays);
+   LocalDate newDueDate = currentDueDate.plusDays(days);
+
+   if (newDueDate.isAfter(maxAllowedDate)) {
+     return Result.failure("EXTENSION_LIMIT_EXCEEDED");
+   }
+   ```
+4. Clear `originalDueDate` on return
+
+**Frontend Changes**:
+1. Update Book interface with `originalDueDate` field
+2. Calculate dynamic `maxAllowedExtension` based on original due date
+3. Display remaining allowance in modal
+
+**API Impact**: ⚠️ **Breaking Change**
+- Adds `originalDueDate` field to `BookResponse` DTO
+- Existing clients will receive new field (backward compatible for readers)
+- Database migration required for persistent storage
+
+**Recommendation**: Implement in post-assignment phase or v2.0 release.
+
+---
+
+### 3. Performance Optimizations
+
+#### 3.1 Reservation Queue Lookups
+
+**Current Implementation**:
+```java
+List<Book> findByReservationQueueContaining(String memberId);
+```
+
+This uses `@ElementCollection` with a `JOIN` query, which can be slow on large datasets.
+
+**Production Recommendation**:
+
+**Option A: Indexed Separate Table**
+```java
+@Entity
+class BookReservation {
+  @Id @GeneratedValue
+  Long id;
+
+  @ManyToOne
+  Book book;
+
+  String memberId;
+
+  @Column(nullable = false)
+  Integer position; // Queue position
+
+  LocalDateTime createdAt;
+}
+```
+
+**Benefits**:
+- Proper indexing on `(memberId, book_id, position)`
+- Faster lookups, especially for member summary
+- Can add reservation metadata (timestamp, priority)
+
+**Drawback**: More complex data model, migration required
+
+**Option B: Denormalized Reservation Count**
+```java
+@Entity
+class Member {
+  // ...
+  @Column(name = "active_reservations_count")
+  private int activeReservationsCount;
+}
+```
+
+Update count on reserve/cancel operations. Use for quick validation.
+
+---
+
+#### 3.2 Caching Layer
+
+**Current State**: Caffeine dependency added but **not used**.
+
+**Production Recommendation**:
+
+Enable Spring Cache with strategic caching:
+
+```java
+@Configuration
+@EnableCaching
+public class CacheConfig {
+  @Bean
+  public CacheManager cacheManager() {
+    CaffeineCacheManager cacheManager = new CaffeineCacheManager("books", "members");
+    cacheManager.setCaffeine(Caffeine.newBuilder()
+      .maximumSize(1000)
+      .expireAfterWrite(5, TimeUnit.MINUTES));
+    return cacheManager;
+  }
+}
+```
+
+**Apply to read-heavy operations**:
+```java
+@Cacheable(value = "books", unless = "#result.isEmpty()")
+public List<Book> findAll() {
+  return bookRepository.findAll();
+}
+
+@CacheEvict(value = "books", allEntries = true)
+public Book save(Book book) {
+  return bookRepository.save(book);
+}
+```
+
+**Benefits**:
+- Reduces database load on read-heavy endpoints (`GET /api/books`, `GET /api/members`)
+- Improves response times for repeated queries
+- TTL prevents stale data
+
+**Considerations**:
+- Cache invalidation strategy (evict on mutations)
+- Memory usage (configure max size)
+- Distributed caching for multi-instance deployments (Redis)
+
+---
+
+### 4. Security Enhancements
+
+#### 4.1 Rate Limiting
+
+**Current State**: No rate limiting on API endpoints.
+
+**Risk**: Potential DoS attacks, abuse of reservation system.
+
+**Production Recommendation**:
+
+Implement per-user rate limiting using Bucket4j:
+
+```java
+@Configuration
+public class RateLimitConfig {
+  @Bean
+  public Bucket createBucket() {
+    Bandwidth limit = Bandwidth.classic(10, Refill.intervally(10, Duration.ofMinutes(1)));
+    return Bucket.builder().addLimit(limit).build();
+  }
+}
+```
+
+**Suggested Limits**:
+- Borrow/Reserve/Return: 10 requests/minute per user
+- Search: 30 requests/minute per user
+- CRUD operations: 5 requests/minute per admin
+
+---
+
+#### 4.2 Authentication & Authorization
+
+**Current State**:
+- Security enforcement disabled by default (`library.security.enforce: false`)
+- OAuth2 JWT support exists but not used in development
+
+**Production Recommendation**:
+
+1. **Enable OAuth2 in production**:
+   ```yaml
+   # application-prod.yaml
+   library:
+     security:
+       enforce: true
+   spring:
+     security:
+       oauth2:
+         resourceserver:
+           jwt:
+             issuer-uri: https://auth.example.com
+   ```
+
+2. **Role-Based Access Control**:
+   - `ROLE_MEMBER`: Borrow, return own books, reserve
+   - `ROLE_ADMIN`: CRUD books/members, view all loans
+   - `ROLE_LIBRARIAN`: Manage loans, view reports
+
+3. **Audit Logging**: Track all loan transactions with user IDs
+
+---
+
+### 5. Data Integrity & Validation
+
+#### 5.1 Concurrent Modification Protection
+
+**Current State**: No optimistic locking on entities.
+
+**Risk**: Race conditions when two users try to borrow same book simultaneously.
+
+**Production Recommendation**:
+
+Add `@Version` field to Book entity:
+
+```java
+@Entity
+public class Book {
+  // ...
+
+  @Version
+  private Long version;
+}
+```
+
+Spring Data JPA will automatically throw `OptimisticLockException` on concurrent updates.
+
+**Handler**:
+```java
+try {
+  bookRepository.save(book);
+} catch (OptimisticLockException e) {
+  return Result.failure("BOOK_STATE_CHANGED");
+}
+```
+
+---
+
+#### 5.2 Input Validation Enhancements
+
+**Current Gaps**:
+- No max length validation on book titles, member names
+- No format validation on IDs (could accept special characters)
+
+**Production Recommendation**:
+
+```java
+public record CreateBookRequest(
+  @NotBlank
+  @Pattern(regexp = "^[a-zA-Z0-9_-]{1,50}$")
+  String id,
+
+  @NotBlank
+  @Size(min = 1, max = 200)
+  String title
+) {}
+```
+
+---
+
+### 6. Observability & Monitoring
+
+#### 6.1 Structured Logging
+
+**Production Recommendation**:
+
+Add structured logging with MDC (Mapped Diagnostic Context):
+
+```java
+@Slf4j
+public class LibraryService {
+  public Result borrowBook(String bookId, String memberId) {
+    MDC.put("bookId", bookId);
+    MDC.put("memberId", memberId);
+    MDC.put("operation", "borrow");
+
+    try {
+      log.info("Borrow request started");
+      // ... business logic ...
+      log.info("Borrow completed successfully");
+      return Result.success();
+    } catch (Exception e) {
+      log.error("Borrow failed", e);
+      throw e;
+    } finally {
+      MDC.clear();
+    }
+  }
+}
+```
+
+**Benefits**: Easier debugging, tracing, and log aggregation in production.
+
+---
+
+#### 6.2 Metrics & Health Checks
+
+**Production Recommendation**:
+
+Enable Spring Boot Actuator metrics:
+
+```java
+@Component
+public class LibraryMetrics {
+  private final MeterRegistry registry;
+
+  public LibraryMetrics(MeterRegistry registry) {
+    this.registry = registry;
+  }
+
+  public void recordBorrow() {
+    registry.counter("library.borrows.total").increment();
+  }
+
+  public void recordOverdueBook() {
+    registry.gauge("library.overdue.count", overdueCount);
+  }
+}
+```
+
+**Custom Health Indicator**:
+```java
+@Component
+public class LibraryHealthIndicator implements HealthIndicator {
+  @Override
+  public Health health() {
+    long overdueCount = bookRepository.countByDueDateBefore(LocalDate.now());
+    if (overdueCount > 100) {
+      return Health.down()
+        .withDetail("overdue_books", overdueCount)
+        .build();
+    }
+    return Health.up().build();
+  }
+}
+```
+
+---
+
+### 7. Testing Gaps
+
+#### 7.1 Integration Test Coverage
+
+**Current State**: 24 integration tests, but missing:
+- Concurrent access scenarios
+- Edge cases with reservation queue at max capacity
+- Performance tests with large datasets (1000+ books)
+
+**Production Recommendation**:
+
+Add load testing with JMeter or Gatling:
+```scala
+scenario("Concurrent Borrow Requests")
+  .exec(http("borrow").post("/api/borrow")
+    .body(StringBody("""{"bookId":"b1","memberId":"m1"}""")))
+  .inject(
+    rampUsers(100).during(10.seconds)
+  )
+```
+
+---
+
+#### 7.2 Contract Testing
+
+**Production Recommendation**:
+
+Implement consumer-driven contract tests (Pact) to ensure frontend/backend compatibility:
+
+```java
+@Pact(consumer = "frontend")
+public RequestResponsePact borrowBookContract(PactDslWithProvider builder) {
+  return builder
+    .given("book b1 is available")
+    .uponReceiving("borrow request")
+    .path("/api/borrow")
+    .method("POST")
+    .body(new PactDslJsonBody()
+      .stringValue("bookId", "b1")
+      .stringValue("memberId", "m1"))
+    .willRespondWith()
+    .status(200)
+    .body(new PactDslJsonBody()
+      .booleanValue("ok", true))
+    .toPact();
+}
+```
+
+---
+
+### 8. Deployment & Infrastructure
+
+#### 8.1 Database Migration
+
+**Current State**: H2 in-memory database (development only).
+
+**Production Recommendation**:
+
+1. **Migrate to PostgreSQL**:
+   ```yaml
+   spring:
+     datasource:
+       url: jdbc:postgresql://localhost:5432/library
+       driver-class-name: org.postgresql.Driver
+     jpa:
+       database-platform: org.hibernate.dialect.PostgreSQLDialect
+   ```
+
+2. **Use Flyway for migrations**:
+   ```sql
+   -- V1__initial_schema.sql
+   CREATE TABLE books (
+     id VARCHAR(255) PRIMARY KEY,
+     title VARCHAR(255) NOT NULL,
+     loaned_to VARCHAR(255),
+     due_date DATE,
+     original_due_date DATE,
+     version BIGINT DEFAULT 0
+   );
+   ```
+
+3. **Connection pooling** (HikariCP already included):
+   ```yaml
+   spring:
+     datasource:
+       hikari:
+         maximum-pool-size: 10
+         minimum-idle: 5
+   ```
+
+---
+
+#### 8.2 Containerization
+
+**Production Recommendation**:
+
+```dockerfile
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY build/libs/api-*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+**Docker Compose** for local testing:
+```yaml
+version: '3.8'
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: library
+      POSTGRES_PASSWORD: secret
+
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/library
+```
+
+---
+
+### 9. Feature Enhancements
+
+#### 9.1 Reservation Priority System
+
+**Potential Enhancement**: Allow VIP members or "urgent" reservations to jump queue.
+
+```java
+@Entity
+class BookReservation {
+  // ...
+  @Enumerated(EnumType.STRING)
+  private ReservationPriority priority; // NORMAL, HIGH, URGENT
+
+  LocalDateTime expiresAt; // Auto-cancel if not claimed within 24h
+}
+```
+
+---
+
+#### 9.2 Notification System
+
+**Production Recommendation**:
+
+Send notifications for:
+- Book available (member at head of queue)
+- Due date approaching (3 days before)
+- Overdue reminder
+- Reservation expiring soon
+
+**Implementation**:
+```java
+@Service
+public class NotificationService {
+  public void notifyBookAvailable(String memberId, String bookId) {
+    // Send email/SMS/push notification
+  }
+}
+```
+
+---
+
+#### 9.3 Fine/Late Fee System
+
+Track overdue days and calculate fees:
+
+```java
+@Entity
+class Loan {
+  // ...
+  BigDecimal fineAmount; // Calculated from overdue days
+  boolean finePaid;
+}
+```
+
+---
+
+### 10. Documentation & API
+
+#### 10.1 Complete Swagger Coverage
+
+**Current State**: LoanController fully documented, BookController and MemberController pending.
+
+**Recommendation**: Add comprehensive Swagger annotations to all controllers (estimated 60 minutes).
+
+---
+
+#### 10.2 API Versioning
+
+**Production Recommendation**:
+
+Prepare for future breaking changes:
+
+```java
+@RestController
+@RequestMapping("/api/v1/books") // Version prefix
+public class BookController {
+  // ...
+}
+```
+
+Or use header-based versioning:
+```java
+@GetMapping(headers = "X-API-Version=1")
+```
+
+---
+
+## Summary: Production Readiness Checklist
+
+### Critical (Must-Have for Production)
+- [ ] Enable OAuth2 authentication (`library.security.enforce: true`)
+- [ ] Migrate to PostgreSQL with Flyway
+- [ ] Add optimistic locking (`@Version`) to prevent race conditions
+- [ ] Enable HTTPS/TLS
+- [ ] Configure rate limiting
+- [ ] Add structured logging with MDC
+- [ ] Health checks and metrics (Spring Actuator)
+
+### High Priority (Should-Have)
+- [ ] Implement bidirectional reservation queue processing
+- [ ] Add cumulative extension limit tracking (`originalDueDate`)
+- [ ] Enable caching layer (Caffeine/Redis)
+- [ ] Add integration tests for concurrent scenarios
+- [ ] Complete Swagger documentation for all endpoints
+- [ ] Role-based access control (member/admin/librarian)
+
+### Medium Priority (Nice-to-Have)
+- [ ] Reservation priority system
+- [ ] Notification service (email/SMS)
+- [ ] Fine/late fee tracking
+- [ ] Enhanced input validation (ID format, length limits)
+- [ ] Performance testing with 10,000+ books
+- [ ] Contract testing (Pact)
+
+### Low Priority (Future Enhancements)
+- [ ] UI notification for available reservations
+- [ ] Book recommendations based on borrowing history
+- [ ] Multi-library support (branch management)
+- [ ] Advanced search (author, genre, ISBN)
+- [ ] Export reports (overdue books, popular titles)
+
+---
+
 **Last Updated**: December 25, 2025
-**Version**: 1.5
+**Version**: 1.6
 **Test Coverage**: 59/59 tests passing (100%)
 **API Contract Compliance**: ✅ **FIXED** - All violations resolved
-**API Documentation**: ✅ **Swagger UI** available
+**API Documentation**: ✅ **Swagger UI** available (LoanController complete, others pending)
 **Frontend Features**: ✅ **Due dates**, **Dynamic buttons**, and **Extension modal** added
+**Production Readiness**: ⚠️ **Development-ready**, see checklist above for production deployment
