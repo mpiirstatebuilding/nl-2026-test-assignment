@@ -29,6 +29,8 @@ export class AppComponent {
   lastMessage = translate('statusIdle');
   loading = false;
   apiAvailable = true;
+  bookModalError: string | null = null;
+  memberModalError: string | null = null;
 
   readonly MIN_EXTENSION_DAYS = 1;
   readonly MAX_EXTENSION_DAYS = 90;
@@ -143,11 +145,25 @@ export class AppComponent {
 
   async createBook(): Promise<void> {
     if (!this.bookIdInput || !this.bookTitleInput) {
-      this.lastMessage = this.t('INVALID_REQUEST');
+      this.bookModalError = 'INVALID_REQUEST';
       return;
     }
-    await this.runAction(() => this.api.createBook(this.bookIdInput, this.bookTitleInput));
-    this.clearBookModal();
+    this.bookModalError = null;
+    this.loading = true;
+    try {
+      const result = await this.api.createBook(this.bookIdInput, this.bookTitleInput);
+      if (!result.ok) {
+        this.bookModalError = result.reason ?? 'INVALID_REQUEST';
+        return;
+      }
+      this.lastMessage = this.t('ok');
+      this.closeBookModal();
+      await this.refreshAll();
+    } catch (e) {
+      this.bookModalError = 'apiError';
+    } finally {
+      this.loading = false;
+    }
   }
 
   async updateBook(): Promise<void> {
@@ -169,11 +185,25 @@ export class AppComponent {
 
   async createMember(): Promise<void> {
     if (!this.memberIdInput || !this.memberNameInput) {
-      this.lastMessage = this.t('INVALID_REQUEST');
+      this.memberModalError = 'INVALID_REQUEST';
       return;
     }
-    await this.runAction(() => this.api.createMember(this.memberIdInput, this.memberNameInput));
-    this.clearMemberModal();
+    this.memberModalError = null;
+    this.loading = true;
+    try {
+      const result = await this.api.createMember(this.memberIdInput, this.memberNameInput);
+      if (!result.ok) {
+        this.memberModalError = result.reason ?? 'INVALID_REQUEST';
+        return;
+      }
+      this.lastMessage = this.t('ok');
+      this.closeMemberModal();
+      await this.refreshAll();
+    } catch (e) {
+      this.memberModalError = 'apiError';
+    } finally {
+      this.loading = false;
+    }
   }
 
   async updateMember(): Promise<void> {
@@ -339,6 +369,7 @@ export class AppComponent {
   openBookModal(mode: 'create' | 'edit', book?: Book) {
     this.bookModalMode = mode;
     this.bookModalOpen = true;
+    this.bookModalError = null;
     if (mode === 'edit' && book) {
       this.bookIdInput = book.id;
       this.bookTitleInput = book.title;
@@ -351,6 +382,7 @@ export class AppComponent {
   openMemberModal(mode: 'create' | 'edit', member?: Member) {
     this.memberModalMode = mode;
     this.memberModalOpen = true;
+    this.memberModalError = null;
     if (mode === 'edit' && member) {
       this.memberIdInput = member.id;
       this.memberNameInput = member.name;
@@ -389,11 +421,31 @@ export class AppComponent {
   private clearBookModal() {
     this.bookIdInput = '';
     this.bookTitleInput = '';
+    this.bookModalError = null;
   }
 
   private clearMemberModal() {
     this.memberIdInput = '';
     this.memberNameInput = '';
+    this.memberModalError = null;
+  }
+
+  formatErrorMessage(errorCode: string): string {
+    const messages: Record<string, string> = {
+      'BOOK_ALREADY_EXISTS': 'A book with this ID already exists. Please use a different ID.',
+      'MEMBER_ALREADY_EXISTS': 'A member with this ID already exists. Please use a different ID.',
+      'INVALID_REQUEST': 'Please fill in all required fields.',
+      'apiError': 'An error occurred while communicating with the API.',
+    };
+    return messages[errorCode] || `Error: ${errorCode}`;
+  }
+
+  dismissBookError() {
+    this.bookModalError = null;
+  }
+
+  dismissMemberError() {
+    this.memberModalError = null;
   }
 }
 

@@ -155,10 +155,21 @@
       <h3>{{ bookModalMode === 'edit' ? t('edit') : t('add') }} {{ t('booksTitle') }}</h3>
       <button class="icon-btn" (click)="closeBookModal()" title="{{ t('cancelAction') }}">✕</button>
     </div>
+
+    <div class="error-banner" *ngIf="bookModalError">
+      <span class="error-icon">⚠️</span>
+      <span class="error-message">{{ formatErrorMessage(bookModalError) }}</span>
+      <button class="error-close" (click)="dismissBookError()" title="Dismiss">✕</button>
+    </div>
+
     <div class="form-grid">
       <label class="field">
         <span>{{ t('bookId') }}</span>
-        <input [placeholder]="t('bookId')" [(ngModel)]="bookIdInput" [disabled]="bookModalMode === 'edit' || loading" />
+        <input #bookIdField
+               [placeholder]="t('bookId')"
+               [(ngModel)]="bookIdInput"
+               [disabled]="bookModalMode === 'edit' || loading"
+               [class.input-error]="bookModalError" />
       </label>
       <label class="field">
         <span>{{ t('bookTitle') }}</span>
@@ -178,10 +189,21 @@
       <h3>{{ memberModalMode === 'edit' ? t('edit') : t('add') }} {{ t('membersTitle') }}</h3>
       <button class="icon-btn" (click)="closeMemberModal()" title="{{ t('cancelAction') }}">✕</button>
     </div>
+
+    <div class="error-banner" *ngIf="memberModalError">
+      <span class="error-icon">⚠️</span>
+      <span class="error-message">{{ formatErrorMessage(memberModalError) }}</span>
+      <button class="error-close" (click)="dismissMemberError()" title="Dismiss">✕</button>
+    </div>
+
     <div class="form-grid">
       <label class="field">
         <span>{{ t('memberId') }}</span>
-        <input [placeholder]="t('memberId')" [(ngModel)]="memberIdInput" [disabled]="memberModalMode === 'edit' || loading" />
+        <input #memberIdField
+               [placeholder]="t('memberId')"
+               [(ngModel)]="memberIdInput"
+               [disabled]="memberModalMode === 'edit' || loading"
+               [class.input-error]="memberModalError" />
       </label>
       <label class="field">
         <span>{{ t('memberName') }}</span>

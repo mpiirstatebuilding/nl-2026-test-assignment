@@ -45,10 +45,10 @@
 | **Performance**: Database queries | 10x-100x faster for large datasets |
 | **Security**: Authorization checks | Prevent unauthorized returns/extensions |
 | **Data Integrity**: Delete safeguards | Prevent orphaned data and inconsistencies |
-| **Duplicate Prevention**: ID validation | Prevent creating duplicate books/members |
+| **Duplicate Prevention**: ID validation + UX | Backend validation + inline modal error display |
 | **Documentation**: Swagger/JavaDoc | Complete API documentation |
 | **Testing**: 38 test cases | Comprehensive coverage |
-| **Frontend**: UI improvements | Better testing experience |
+| **Frontend**: UI improvements | Modal error banners, input highlighting, better UX |
 
 ---
 
@@ -145,10 +145,10 @@ BUILD SUCCESSFUL in 8s
 ### Additional Changes
 4. Controllers (3 files) - Swagger/OpenAPI annotations
 5. Tests (2 files) - Comprehensive coverage
-6. Frontend (4 files) - UI improvements for testing
-7. Documentation (3 files) - This summary, AI_USAGE.md, TECHNICAL_DOCUMENTATION.md
+6. Frontend (7 files) - Inline modal error display, input highlighting, UI improvements
+7. Documentation (4 files) - AI_USAGE.md, SUMMARY.md, TECHNICAL_DOCUMENTATION.md, IMPLEMENTATION_PLAN.md
 
-**Total**: 16 files modified/created
+**Total**: 19 files modified/created
 
 ---
 
@@ -206,6 +206,7 @@ GET  /api/members/{id}/summary  # Member's loans + reservations
 - [x] Security authorization checks
 - [x] Data integrity safeguards (delete operations)
 - [x] Duplicate ID prevention (createBook, createMember validation)
+- [x] Frontend error UX (inline modal error banners, input highlighting)
 - [x] Code quality & readability (named constants, inline comments, ErrorCodes constants)
 - [x] Comprehensive JavaDoc (domain entities, DTOs, ErrorCodes)
 - [x] Swagger/OpenAPI documentation

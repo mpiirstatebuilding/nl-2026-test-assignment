@@ -70,9 +70,10 @@ backend/
 | **Performance** | Database-level queries | Production scalability |
 | **Security** | Authorization checks | Prevent unauthorized actions |
 | **Data Integrity** | Delete operation safeguards | Prevent orphaned data |
+| **Duplicate Prevention** | ID validation + modal error UX | Prevent data corruption + excellent UX |
 | **Documentation** | JavaDoc + Swagger | API consumer support |
-| **Testing** | 36 test cases | Ensure correctness |
-| **Frontend** | UI improvements | Better testing experience |
+| **Testing** | 38 test cases | Ensure correctness |
+| **Frontend** | Modal error banners + UI improvements | Professional user experience |
 
 ---
 

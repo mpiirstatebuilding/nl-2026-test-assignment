@@ -184,7 +184,28 @@ Added unit tests for:
    - Added integration tests: Same test names in `ApiIntegrationTest.java`
    - Tests verify proper error codes and that repository save is never called on duplicate
 
-**Impact**: Prevents data corruption from duplicate IDs, provides clear error messages to API consumers, ensures test isolation
+6. **Frontend Error Display Enhancement** (`app.component.ts`, `app.component.html`, `app.component.css`):
+   - **Problem**: Error messages appeared in Status container behind modal window, easily missed by users
+   - **Solution**: Implemented inline error banner within modal (Option 1 from IMPLEMENTATION_PLAN.md)
+   - **Error State Management**:
+     - Added `bookModalError` and `memberModalError` properties
+     - Updated `createBook()` and `createMember()` to capture errors without closing modal
+     - Clear errors when opening/closing modals
+   - **Error Display**:
+     - Added error banner component with warning icon (⚠️), user-friendly message, and dismissible close button
+     - Added to both Book and Member modals
+     - Smooth slide-down animation (0.3s) to draw attention
+   - **Input Highlighting**:
+     - ID input fields get red border (`border-color: #c00`) when error occurs
+     - Subtle pulse animation to draw attention to problematic field
+     - Background tint for additional visual feedback
+   - **User-Friendly Messages**:
+     - `BOOK_ALREADY_EXISTS` → "A book with this ID already exists. Please use a different ID."
+     - `MEMBER_ALREADY_EXISTS` → "A member with this ID already exists. Please use a different ID."
+     - `INVALID_REQUEST` → "Please fill in all required fields."
+   - **UX Flow**: Error appears inline in modal → User sees immediate feedback → Can correct ID without re-entering other fields → Dismissible error banner
+
+**Impact**: Prevents data corruption from duplicate IDs, provides clear error messages to API consumers, ensures test isolation, **excellent user experience with immediate visible feedback**
 
 ---
 
@@ -235,13 +256,17 @@ Added unit tests for:
 11. **`backend/core/src/test/java/com/nortal/library/core/LibraryServiceTest.java`** - Security test cases + duplicate ID tests
 
 ### Frontend (Optional)
-12-15. **`frontend/src/app/**/*`** - UI improvements for testing
+12. **`frontend/src/app/app.component.ts`** - Error state management, error capture in create methods, formatErrorMessage() helper
+13. **`frontend/src/app/app.component.html`** - Error banners in modals, input error highlighting
+14. **`frontend/src/app/app.component.css`** - Error banner styles, input error styles, animations
+15-18. **`frontend/src/app/**/*`** - UI improvements for testing
 
 ### Documentation
-16. **`.gitignore`** - Repository hygiene
-17. **`AI_USAGE.md`** - This file
-18. **`TECHNICAL_DOCUMENTATION.md`** - Comprehensive technical details
-19. **`SUMMARY.md`** - Quick reference guide
+19. **`.gitignore`** - Repository hygiene
+20. **`AI_USAGE.md`** - This file
+21. **`TECHNICAL_DOCUMENTATION.md`** - Comprehensive technical details
+22. **`SUMMARY.md`** - Quick reference guide
+23. **`IMPLEMENTATION_PLAN.md`** - Frontend enhancement documented and implemented
 
 ---
 
