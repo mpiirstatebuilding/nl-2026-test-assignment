@@ -323,8 +323,6 @@
 
       <ng-container *ngIf="memberSummary">
         <div class="member-info">
-          <h3>{{ memberSummary.memberName }} ({{ memberSummary.memberId }})</h3>
-
           <div class="loans-section">
             <h4>📚 Current Loans ({{ memberSummary.loans.length }})</h4>
             <ng-container *ngIf="memberSummary.loans.length > 0; else noLoans">

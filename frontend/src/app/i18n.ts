@@ -72,6 +72,7 @@ export const translations = {
     NOT_RESERVED: "Reservation not found",
     NOT_LOANED: "Book is not currently loaned",
     RESERVATION_EXISTS: "Cannot extend: others are waiting for this book",
+    MAX_EXTENSION_REACHED: "Cannot extend due date over 90 days",
   },
 };
 
