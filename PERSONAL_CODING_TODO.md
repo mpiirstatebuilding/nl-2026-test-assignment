@@ -18,7 +18,7 @@ A to-do list of features to implement without the use of AI.
   - [x] Overdue books container text too light
   - [x] Member summary
     - [x] Bug: "Loading member summary..." message does not disappear before selection of different member - /summary is not queried at initialization of site
-    - [x] Member name and ID are not displayed in <h3> container above loans and reservations
+    - [x] Member name and ID are not displayed in \<h3> container above loans and reservations
     - [x] Member summary container text too light
 - [ ] Currently no way to test overdue book functionalities - should add debugging possibilities
 
