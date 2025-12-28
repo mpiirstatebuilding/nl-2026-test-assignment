@@ -498,6 +498,12 @@ button.danger {
   max-width: 420px;
 }
 
+.extension-disclaimer {
+  font-size: 0.9rem;
+  color: indianred;
+  font-weight: bold;
+}
+
 .extension-content {
   display: grid;
   gap: 16px;

@@ -5,15 +5,15 @@ A to-do list of features to implement without the use of AI.
 
 ### UI
 - [x] Standardized status messages - a message for every error code
-- [ ] Further restrictions for loan extension within UI 
-  - [ ] Error indication in input modal similar to "Add Book/Member" modal errors
-  ~~- [ ] Adding GET request for /extend used when extension modal is opened to receive number of days able to extend~~
-  ~~- [ ] Should be an error modal if possible extension days is 0~~
+- [x] Further restrictions for loan extension within UI 
+  - ~~-Error indication in input modal similar to "Add Book/Member" modal errors~~
+  - ~~-Adding GET request for /extend used when extension modal is opened to receive number of days able to extend~~
+  - ~~-Should be an error modal if possible extension days is 0~~
   - [x] Change /books endpoint to also return original due dates
   - [x] Frontend functionality to calculate how many days can be extended based on difference between current due date and original due date
   - [x] "Extend loan" button does not appear when max extension days is reached
-  - [ ] Days input should reflect the response from the API
-  - [ ] There should also be information on the modal stating to the user how far they can extend the due date
+  - [x] Days input should reflect the response from the API
+  - [x] There should also be information on the modal stating to the user how far they can extend the due date
 - [ ] Fix visuals of added UI features
   - [ ] Overdue books container text too light
   - [ ] Member summary
@@ -36,3 +36,6 @@ display empty, and the information is already displayed in the drop-down above, 
   - The API now also returns the original due date for loaned books
   - The frontend now calculates the difference between the current due date and the original due date and hides the 
 "Extend loan" button if the difference is equal to the maximum allowed extension days (90 days)
+  - The input field does not go above the amount of days remaining on extension
+  - The default day input in the extension modal is 1, instead of 7.
+  - Added disclaimer to extension modal stating that the maximum extension days is 90 days.

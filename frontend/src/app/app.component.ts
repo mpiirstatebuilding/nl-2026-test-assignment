@@ -27,7 +27,7 @@ export class AppComponent {
   memberModalOpen = false;
   memberModalMode: "create" | "edit" = "create";
   extensionModalOpen = false;
-  extensionDays = 7;
+  extensionDays = 1;
   lastMessage = translate("statusIdle");
   loading = false;
   apiAvailable = true;
@@ -125,13 +125,13 @@ export class AppComponent {
     if (!this.selectedBookId || !this.selectedMemberId) {
       return;
     }
-    this.extensionDays = 7; // Reset to default
+    this.extensionDays = this.MIN_EXTENSION_DAYS; // Reset to default
     this.extensionModalOpen = true;
   }
 
   closeExtensionModal(): void {
     this.extensionModalOpen = false;
-    this.extensionDays = 7;
+    this.extensionDays = this.MIN_EXTENSION_DAYS;
   }
 
   async submitExtensionModal(): Promise<void> {

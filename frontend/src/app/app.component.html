@@ -535,6 +535,7 @@
           ✕
         </button>
       </div>
+        <p class="extension-disclaimer">NB! Due date extension cannot exceed {{ MAX_EXTENSION_DAYS }} days.</p>
       <div class="extension-content">
         <div class="date-info">
           <label class="field">
@@ -551,7 +552,7 @@
               type="number"
               [(ngModel)]="extensionDays"
               [min]="MIN_EXTENSION_DAYS"
-              [max]="MAX_EXTENSION_DAYS"
+              [max]="maxExtensionDays"
               step="1"
               [disabled]="loading"
             />
