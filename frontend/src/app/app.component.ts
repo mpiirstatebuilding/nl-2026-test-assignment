@@ -69,6 +69,9 @@ export class AppComponent {
         this.selectedMemberId = this.members.length ? this.members[0].id : null;
       }
       this.syncInputsWithSelection();
+      if (this.selectedMemberId != null) {
+        this.loadMemberSummary(this.selectedMemberId)
+      }
       this.lastMessage = this.lastMessage || this.t("sampleData");
     } catch (e) {
       this.apiAvailable = false;
