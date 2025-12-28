@@ -635,7 +635,7 @@ input.input-error {
 /* Overdue Books Section */
 .overdue-section {
   margin: 1.5rem 0;
-  background: #fff3cd;
+  background: rgba(255, 193, 7, 0.1);
   border-left: 4px solid #ffc107;
 }
 
@@ -715,7 +715,7 @@ input.input-error {
 .member-selector {
   margin-bottom: 1.5rem;
   padding: 1rem;
-  background: white;
+  background: rgba(33, 150, 243, 0.05);
   border-radius: 8px;
   border: 1px solid rgba(33, 150, 243, 0.2);
 }
@@ -733,7 +733,7 @@ input.input-error {
   font-size: 1rem;
   border: 1px solid rgba(33, 150, 243, 0.3);
   border-radius: 4px;
-  background: white;
+  background: rgba(0, 0, 0, 0.35);
   color: var(--text);
   cursor: pointer;
   transition: border-color 0.2s;
@@ -792,7 +792,7 @@ input.input-error {
 
 .summary-item {
   padding: 1rem;
-  background: white;
+  background: rgba(33, 150, 243, 0.05);
   border-left: 3px solid #2196f3;
   border-radius: 4px;
   transition:

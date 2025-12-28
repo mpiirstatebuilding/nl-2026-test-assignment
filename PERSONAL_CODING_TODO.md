@@ -14,12 +14,12 @@ A to-do list of features to implement without the use of AI.
   - [x] "Extend loan" button does not appear when max extension days is reached
   - [x] Days input should reflect the response from the API
   - [x] There should also be information on the modal stating to the user how far they can extend the due date
-- [ ] Fix visuals of added UI features
-  - [ ] Overdue books container text too light
-  - [ ] Member summary
+- [x] Fix visuals of added UI features
+  - [x] Overdue books container text too light
+  - [x] Member summary
     - [x] Bug: "Loading member summary..." message does not disappear before selection of different member - /summary is not queried at initialization of site
     - [x] Member name and ID are not displayed in <h3> container above loans and reservations
-    - [ ] Member summary container text too light
+    - [x] Member summary container text too light
 - [ ] Currently no way to test overdue book functionalities - should add debugging possibilities
 
 ## Finished steps
@@ -39,5 +39,6 @@ display empty, and the information is already displayed in the drop-down above, 
   - The input field does not go above the amount of days remaining on extension
   - The default day input in the extension modal is 1, instead of 7.
   - Added disclaimer to extension modal stating that the maximum extension days is 90 days.
-- Member Summary container improvements
-  - Fixed "Loading member summary..." bug by adding `this.loadMemberSummary(this.selectedMemberId)` call to refreshAll() function.
+- Fixed "Loading member summary..." bug by adding `this.loadMemberSummary(this.selectedMemberId)` call to refreshAll() function.
+- Changed CSS for "Overdue" and "Member Summary" sections to have darker backgrounds, allowing for better readability of 
+light text.
