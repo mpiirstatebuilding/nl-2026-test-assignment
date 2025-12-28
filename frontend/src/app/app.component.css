@@ -705,7 +705,7 @@ input.input-error {
   color: #28a745;
   font-size: 1.1rem;
   font-weight: 500;
-  background: rgba(40, 167, 69, 0.05);
+  background: white;
   border-radius: 8px;
   border: 1px solid rgba(40, 167, 69, 0.2);
 }
