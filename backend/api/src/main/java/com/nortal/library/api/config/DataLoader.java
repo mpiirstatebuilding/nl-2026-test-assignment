@@ -40,7 +40,9 @@ public class DataLoader {
       bookRepository.save(new Book("b5", "Design Patterns"));
       bookRepository.save(new Book("b6", "The Pragmatic Programmer"));
 
-      Book overdueBook = new Book("vb1", "The Secret to Punctuality");
+      // Create an overdue book for testing overdue functionality in UI
+      // Use "od1" prefix to avoid conflicts with test data that uses "vb1", "vb2", etc.
+      Book overdueBook = new Book("od1", "The Secret to Punctuality");
       overdueBook.setLoanedTo("m4");
       overdueBook.setDueDate(LocalDate.of(2025, 12, 15));
       overdueBook.setFirstDueDate(LocalDate.of(2025, 12, 1));
