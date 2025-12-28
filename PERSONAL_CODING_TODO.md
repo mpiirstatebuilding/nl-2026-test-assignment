@@ -20,7 +20,7 @@ A to-do list of features to implement without the use of AI.
     - [x] Bug: "Loading member summary..." message does not disappear before selection of different member - /summary is not queried at initialization of site
     - [x] Member name and ID are not displayed in \<h3> container above loans and reservations
     - [x] Member summary container text too light
-- [ ] Currently no way to test overdue book functionalities - should add debugging possibilities
+- [x] Currently no way to test overdue book functionalities - should add debugging possibilities
 
 ## Finished steps
 
@@ -42,3 +42,8 @@ display empty, and the information is already displayed in the drop-down above, 
 - Fixed "Loading member summary..." bug by adding `this.loadMemberSummary(this.selectedMemberId)` call to refreshAll() function.
 - Changed CSS for "Overdue" and "Member Summary" sections to have darker backgrounds, allowing for better readability of 
 light text.
+
+### 29 December 2025
+- Added overdue book seed data to DataLoader for overdue functionality testing.
+- Modified "Overdue" section CSS to have a brighter yellow background for a higher sense of urgency.
+- Added loadOverdueBooks() call to refreshAll() function.

@@ -70,8 +70,9 @@ export class AppComponent {
       }
       this.syncInputsWithSelection();
       if (this.selectedMemberId != null) {
-        this.loadMemberSummary(this.selectedMemberId)
+        await this.loadMemberSummary(this.selectedMemberId)
       }
+      await this.loadOverdueBooks();
       this.lastMessage = this.lastMessage || this.t("sampleData");
     } catch (e) {
       this.apiAvailable = false;
