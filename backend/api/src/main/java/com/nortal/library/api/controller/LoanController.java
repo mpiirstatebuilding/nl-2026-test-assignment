@@ -201,6 +201,7 @@ public class LoanController {
         book.getTitle(),
         book.getLoanedTo(),
         book.getDueDate(),
+        book.getFirstDueDate(),
         book.getReservationQueue());
   }
 }

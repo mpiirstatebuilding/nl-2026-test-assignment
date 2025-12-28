@@ -60,6 +60,7 @@ public class BookController {
                               "title": "The Great Gatsby",
                               "loanedTo": "m1",
                               "dueDate": "2026-01-15",
+                              "firstDueDate": "2025-12-20",
                               "reservationQueue": ["m2", "m3"]
                             },
                             {
@@ -67,6 +68,7 @@ public class BookController {
                               "title": "1984",
                               "loanedTo": null,
                               "dueDate": null,
+                              "firstDueDate": null,
                               "reservationQueue": []
                             }
                           ]
@@ -104,6 +106,7 @@ public class BookController {
                                 "title": "The Great Gatsby",
                                 "loanedTo": null,
                                 "dueDate": null,
+                                "firstDueDate": null,
                                 "reservationQueue": []
                               }
                             ]
@@ -121,6 +124,7 @@ public class BookController {
                                 "title": "1984",
                                 "loanedTo": null,
                                 "dueDate": null,
+                                "firstDueDate": null,
                                 "reservationQueue": []
                               }
                             ]
@@ -138,6 +142,7 @@ public class BookController {
                                 "title": "The Great Gatsby",
                                 "loanedTo": "m1",
                                 "dueDate": "2026-01-15",
+                                "firstDueDate": "2025-12-20",
                                 "reservationQueue": []
                               }
                             ]
@@ -327,6 +332,7 @@ public class BookController {
         book.getTitle(),
         book.getLoanedTo(),
         book.getDueDate(),
+        book.getFirstDueDate(),
         book.getReservationQueue());
   }
 }

@@ -1,15 +1,8 @@
-import { Component } from "@angular/core";
-import { CommonModule } from "@angular/common";
-import { FormsModule } from "@angular/forms";
-import {
-  ActionResult,
-  Book,
-  LibraryApiService,
-  Member,
-  MemberSummary,
-  OverdueBook,
-} from "./library.service";
-import { t as translate } from "./i18n";
+import {Component} from "@angular/core";
+import {CommonModule} from "@angular/common";
+import {FormsModule} from "@angular/forms";
+import {ActionResult, Book, LibraryApiService, Member, MemberSummary, OverdueBook,} from "./library.service";
+import {t as translate} from "./i18n";
 
 @Component({
   selector: "app-root",
@@ -162,6 +155,18 @@ export class AppComponent {
 
   get currentDueDate(): string | null {
     return this.activeBook?.dueDate || null;
+  }
+
+  get firstDueDate(): string | null {
+    return this.activeBook?.firstDueDate || null;
+  }
+
+  get maxExtensionDays(): number | null {
+    if (!this.currentDueDate || !this.firstDueDate) return null;
+    const current = new Date(this.currentDueDate);
+    const firstDate = new Date(this.firstDueDate);
+    let diff = (current.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24);  // Difference in days
+    return this.MAX_EXTENSION_DAYS - diff;
   }
 
   get newDueDate(): string | null {
@@ -395,7 +400,8 @@ export class AppComponent {
     // Cannot extend if book has reservations (others are waiting)
     if (this.activeBook.reservationQueue.length > 0) return false;
 
-    return true;
+    // Cannot extend if maximum extension reached
+    return this.maxExtensionDays !== 0;
   }
 
   onBookSelectionChange(id: string | null) {

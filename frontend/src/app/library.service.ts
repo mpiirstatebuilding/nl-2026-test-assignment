@@ -3,6 +3,7 @@ export interface Book {
   title: string;
   loanedTo: string | null;
   dueDate: string | null;
+  firstDueDate: string | null;
   reservationQueue: string[];
 }
 
@@ -22,6 +23,7 @@ export interface OverdueBook {
   title: string;
   loanedTo: string;
   dueDate: string;
+  firstDueDate: string | null;
   reservationQueue: string[];
 }
 

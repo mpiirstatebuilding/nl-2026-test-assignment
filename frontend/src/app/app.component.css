@@ -705,15 +705,6 @@ input.input-error {
 }
 
 /* Member Summary Section */
-.member-summary-section {
-  margin: 1.5rem 0;
-  background: #e7f3ff;
-  border-left: 4px solid #2196f3;
-}
-
-.member-summary-section .card__header {
-  background: rgba(33, 150, 243, 0.1);
-}
 
 .member-selector {
   margin-bottom: 1.5rem;
