@@ -6,15 +6,15 @@
 
 ## 📊 At a Glance
 
-| Category | Status |
-|----------|--------|
-| **Assignment Requirements** | ✅ All 8 behaviors implemented |
-| **Test Suite** | ✅ 43 tests passing (28 unit + 15 integration) |
-| **Code Quality** | ✅ Formatted with Spotless + Prettier |
-| **AI Usage** | 100% AI-assisted (Claude Sonnet 4.5) |
-| **Human Contributions** | UI/UX enhancements (Dec 27-29, 2025) |
-| **Production Enhancements** | 11 additional improvements (A-K) |
-| **API Coverage** | 100% - All endpoints accessible via UI |
+| Category | Status                                              |
+|----------|-----------------------------------------------------|
+| **Assignment Requirements** | ✅ All 8 behaviors implemented                       |
+| **Test Suite** | ✅ 43 tests passing (28 unit + 15 integration)       |
+| **Code Quality** | ✅ Formatted with Spotless + Prettier                |
+| **AI Usage** | AI assistance for backend logic (Claude Sonnet 4.5) |
+| **Human Contributions** | UI/UX enhancements (Dec 27-29, 2025)                |
+| **Production Enhancements** | 11 additional improvements (A-K)                    |
+| **API Coverage** | 100% - All endpoints accessible via UI              |
 
 ---
 
@@ -46,7 +46,7 @@ Per README.md, the following behaviors were **required**:
 
 ## 🤖 AI Contributions (Claude Sonnet 4.5)
 
-**Total**: 100% of backend business logic + initial frontend implementation
+**Total**: Backend business logic + initial frontend implementation
 
 ### Required Implementations
 1. **Double loan prevention** - `borrowBook()` validation
@@ -137,7 +137,6 @@ Per README.md, the following behaviors were **required**:
 
 ## 👤 Human Contributions (Manual Work)
 
-**Developer**: User
 **Period**: December 27-29, 2025
 **Focus**: UI/UX refinements and testing improvements
 
@@ -163,132 +162,19 @@ Per README.md, the following behaviors were **required**:
 
 ---
 
-## 🏗️ Architecture
+# Workflow
+The workflow for this project mainly consisted of an iterative process where:
+1. I identified what needed to be done and created a task list,
+2. I gave the list to Claude Code and directed it to create an implementation plan,
+3. I verified the implementation plan, asked Claude to modify it as needed, and once satisfied, directed it to begin implementation,
+4. I tested the application and noted down any bugs that needed fixing, or other improvements.
 
-**Pattern**: Hexagonal (Ports & Adapters)
+Occasionally, I would also ask Claude to review the code and find potential areas for improvement that I hadn't caught.
 
-```
-backend/
-├── core/          # Pure business logic (no framework dependencies)
-│   ├── domain/    # Book.java, Member.java entities
-│   ├── port/      # BookRepository, MemberRepository interfaces
-│   └── LibraryService.java (main business logic - 486 lines)
-├── persistence/   # Data access layer
-│   ├── jpa/       # Spring Data JPA repositories
-│   └── adapter/   # Repository adapters
-└── api/           # REST layer + application startup
-    ├── controller/ # REST endpoints
-    ├── dto/        # Request/response records
-    └── config/     # Spring configuration
-```
-
-**Key Principles**:
-- Core defines interfaces; persistence provides implementations
-- Business logic has zero Spring dependencies (pure Java)
-- Controllers never expose domain entities (always DTOs)
-- Result-based error handling (no exceptions for business rules)
+I had a similar workflow for the phase of coding without AI assistance, writing a to-do list of tasks and implementing 
+them one by one, making changes to the list as needed.
 
 ---
-
-## 🔧 Quick Verification Guide
-
-### Start Backend (Port 8080)
-```bash
-cd backend
-./gradlew :api:bootRun
-
-# OR use helper
-node tools/run-backend.mjs start
-```
-
-**Seed Data**: Members `m1`-`m4`, Books `b1`-`b6` (including overdue books for testing)
-
-### Start Frontend (Port 4200) - Optional
-```bash
-cd frontend
-npm install
-npm start
-```
-Access at: `http://localhost:4200`
-
-### Run Tests
-```bash
-./gradlew test
-# Expected: BUILD SUCCESSFUL - 43 tests passed
-```
-
-### Check Code Formatting
-```bash
-# Backend (Google Java Format)
-./gradlew spotlessApply
-
-# Frontend (Prettier)
-cd frontend && npm run format
-```
-
-### API Documentation
-- **Swagger UI**: `http://localhost:8080/swagger-ui/index.html`
-- **OpenAPI JSON**: `http://localhost:8080/v3/api-docs`
-- **H2 Console**: `http://localhost:8080/h2-console` (JDBC: `jdbc:h2:mem:library`)
-
----
-
-## 📁 Files Modified Summary
-
-### Backend (Core Business Logic)
-| File | Changes | Lines |
-|------|---------|-------|
-| `LibraryService.java` | 6 methods fixed, 1 helper added, ErrorCodes integration | 486 |
-| `ErrorCodes.java` | Created constants class | 17 constants |
-| `Book.java` | Added `firstDueDate` field + JavaDoc | ~80 |
-| `Member.java` | Added comprehensive JavaDoc | ~40 |
-| `BookRepository.java` | Added 6 query methods | Interface |
-| `JpaBookRepository.java` | Implemented query methods | JPA |
-
-### Backend (API Layer)
-| File | Changes |
-|------|---------|
-| `BookController.java` | Swagger annotations, error examples |
-| `MemberController.java` | Swagger annotations, error examples |
-| `LoanController.java` | Swagger annotations, extension limit docs |
-| `OpenApiConfig.java` | Created Swagger configuration |
-| `DataLoader.java` | Clear existing data, added overdue seed data |
-
-### Backend (Testing)
-| File | Tests |
-|------|-------|
-| `LibraryServiceTest.java` | 28 unit tests (business logic, security, edge cases) |
-| `ApiIntegrationTest.java` | 15 integration tests (E2E API validation) |
-
-### Frontend
-| File | Changes | Lines Added |
-|------|---------|-------------|
-| `library.service.ts` | 4 interfaces, 2 API methods | ~40 |
-| `app.component.ts` | State management, 3 methods, error handling | ~60 |
-| `app.component.html` | Error banners, overdue section, member summary | ~120 |
-| `app.component.css` | Error styles, section styling | ~240 |
-
-### Documentation
-| File | Purpose | Lines |
-|------|---------|-------|
-| `AI_USAGE.md` | Complete AI work log | 505 |
-| `TECHNICAL_DOCUMENTATION.md` | Deep technical details | 683 |
-| `PERSONAL_CODING_TODO.md` | Human work log | 50 |
-| `SUMMARY.md` | This file | ~400 |
-| `CLAUDE.md` | Project instructions for AI | ~400 |
-
-**Total Files Modified**: 22 files
-
----
-
-## 🧪 Test Results
-
-```bash
-$ ./gradlew test
-
-BUILD SUCCESSFUL in 8s
-43 tests completed, 43 passed, 0 failed
-```
 
 ### Test Coverage Breakdown
 - **Business Logic**: Double loans, queue enforcement, handoffs, limits
@@ -296,50 +182,6 @@ BUILD SUCCESSFUL in 8s
 - **Edge Cases**: Ineligible members, deleted members, concurrent operations
 - **Data Integrity**: Delete safeguards, duplicate prevention
 - **Extension Limits**: 90-day maximum enforcement, boundary tests
-
----
-
-## 🌐 API Endpoints Reference
-
-### Books (5 endpoints)
-```
-GET    /api/books                  List all books
-GET    /api/books/search           Search by title/availability/borrower
-POST   /api/books                  Create book
-PUT    /api/books                  Update book
-DELETE /api/books                  Delete book
-```
-
-### Members (4 endpoints)
-```
-GET    /api/members                List all members
-GET    /api/members/{id}/summary   Member's loans + reservations
-POST   /api/members                Create member
-PUT    /api/members                Update member
-DELETE /api/members                Delete member
-```
-
-### Loans & Reservations (6 endpoints)
-```
-POST   /api/borrow                 Borrow book (queue + limit enforced)
-POST   /api/return                 Return book (auto-handoff)
-POST   /api/reserve                Reserve book (immediate loan if available)
-POST   /api/cancel-reservation     Cancel reservation
-POST   /api/extend                 Extend loan (90-day limit)
-GET    /api/overdue                List overdue books
-```
-
-### Response Format
-```json
-// Success
-{"ok": true, "reason": null}
-
-// Failure with error code
-{"ok": false, "reason": "BORROW_LIMIT"}
-
-// Return with automatic handoff
-{"ok": true, "nextMemberId": "m2"}
-```
 
 ---
 
@@ -373,12 +215,12 @@ GET    /api/overdue                List overdue books
 ## 🤝 Development Attribution
 
 ### AI Contribution (Claude Sonnet 4.5 via Claude Code)
-**Scope**: 100% of backend business logic, testing, and initial frontend
+**Scope**: Backend business logic, testing, and initial frontend
 - Code analysis and bug identification
 - Implementation of all 8 required behaviors
 - 11 production enhancements (A-K)
 - All 43 test cases
-- Complete documentation (JavaDoc, Swagger, markdown)
+- Documentation (JavaDoc, Swagger, SUMMARY.md, AI_USAGE.md)
 - Performance optimizations
 - Security enhancements
 
@@ -389,18 +231,7 @@ GET    /api/overdue                List overdue books
 - Bug fixes (loading states, refresh logic)
 - Overdue book seed data for testing
 - Error message translations
-
----
-
-## 📖 Documentation Index
-
-For more details, see:
-
-| Document | Purpose | Lines |
-|----------|---------|-------|
-| **AI_USAGE.md** | Complete AI work changelog with technical details | 505 |
-| **PERSONAL_CODING_TODO.md** | Human work log and UI improvements | 50 |
-| **README.md** | Assignment brief and quick start | 74 |
+- Documentation (PERSONAL_CODING_TODO.md, edits to SUMMARY.md and AI_USAGE.md)
 
 ---
 
@@ -421,20 +252,20 @@ For more details, see:
 
 ---
 
-## 🎓 Key Takeaways for Graders
+## Possible future improvements
 
-1. **Assignment Compliance**: All 8 required behaviors fully implemented in `LibraryService.java`
-2. **Code Quality**: Professional-grade with 43 passing tests, comprehensive docs, and clean code
-3. **Performance**: Optimized from O(n) to O(1) for critical operations
-4. **Production Ready**: Includes security, data integrity, and extension limits beyond requirements
-5. **API Coverage**: 100% of endpoints accessible and documented via Swagger + UI
-6. **Testing**: Comprehensive coverage including edge cases and security scenarios
-7. **AI Usage**: Fully documented in `AI_USAGE.md` with transparent attribution
-8. **Human Enhancement**: UI/UX refinements documented in `PERSONAL_CODING_TODO.md`
+A list of possible future enhancements for the application in a production environment:
 
----
+### 1. Separate admin and user views
+The current version of the library management application is a kind of hybrid between admin and user views. It gives an
+overview of all books and members (with the option to add, edit, or delete them), and at the same time allows users to 
+borrow and return books. If this were a public-facing project, it would be better to separate views and permissions for
+administrators and users.
 
-**Project Status**: ✅ Complete and Production-Ready
-**Submission Date**: December 29, 2025
-**Total Development Time**: ~12 hours (AI + human)
-**Final Result**: All requirements met + 11 production enhancements
+### 2. Security and authentication
+The next (or rather parallel with #1) step would be to add a system for user authentication and authorization.
+
+### 3. PostgreSQL and Liquibase
+The current database is an in-memory H2 database for handling seed data. If the application were to be deployed to a 
+production environment, it would need a proper database backend, preferably PostgreSQL and using Liquibase for schema 
+migrations.
