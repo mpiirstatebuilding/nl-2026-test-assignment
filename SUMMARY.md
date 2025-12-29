@@ -162,20 +162,6 @@ Per README.md, the following behaviors were **required**:
 
 ---
 
-# Workflow
-The workflow for this project mainly consisted of an iterative process where:
-1. I identified what needed to be done and created a task list,
-2. I gave the list to Claude Code and directed it to create an implementation plan,
-3. I verified the implementation plan, asked Claude to modify it as needed, and once satisfied, directed it to begin implementation,
-4. I tested the application and noted down any bugs that needed fixing, or other improvements.
-
-Occasionally, I would also ask Claude to review the code and find potential areas for improvement that I hadn't caught.
-
-I had a similar workflow for the phase of coding without AI assistance, writing a to-do list of tasks and implementing 
-them one by one, making changes to the list as needed.
-
----
-
 ### Test Coverage Breakdown
 - **Business Logic**: Double loans, queue enforcement, handoffs, limits
 - **Security**: Authorization checks, unauthorized access prevention
