@@ -133,6 +133,10 @@ Per README.md, the following behaviors were **required**:
 - ~360 lines added across 4 files
 - **Files**: `library.service.ts`, `app.component.ts`, `app.component.html`, `app.component.css`
 
+#### H. Refactoring of LibraryService
+- **Compartmentalization**: Refactored `LibraryService` into multiple classes for better readability
+- **Classes**: `BookManagementService`, `LibraryQueueService`, `LoanService`, `MemberManagementService`
+
 ---
 
 ## 👤 Human Contributions (Manual Work)
@@ -234,7 +238,7 @@ Per README.md, the following behaviors were **required**:
 - ✅ Manual testing completed (UI + API)
 - ✅ Documentation complete and updated
 - ✅ Git history clean (no build artifacts)
-- ✅ 11 production enhancements implemented (A-K)
+- ✅ 12 production enhancements implemented (A-H)
 
 ---
 
