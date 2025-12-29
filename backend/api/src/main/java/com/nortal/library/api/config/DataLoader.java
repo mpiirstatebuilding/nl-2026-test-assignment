@@ -4,11 +4,10 @@ import com.nortal.library.core.domain.Book;
 import com.nortal.library.core.domain.Member;
 import com.nortal.library.core.port.BookRepository;
 import com.nortal.library.core.port.MemberRepository;
+import java.time.LocalDate;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.time.LocalDate;
 
 @Configuration
 public class DataLoader {

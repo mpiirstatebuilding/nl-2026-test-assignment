@@ -10,6 +10,8 @@ import com.nortal.library.api.dto.ResultResponse;
 import com.nortal.library.api.dto.ResultWithNextResponse;
 import com.nortal.library.api.dto.ReturnRequest;
 import com.nortal.library.core.LibraryService;
+import com.nortal.library.core.Result;
+import com.nortal.library.core.ResultWithNext;
 import com.nortal.library.core.domain.Book;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -73,7 +75,7 @@ public class LoanController {
                 }))
   })
   public ResultResponse borrow(@RequestBody @Valid BorrowRequest request) {
-    LibraryService.Result result = libraryService.borrowBook(request.bookId(), request.memberId());
+    Result result = libraryService.borrowBook(request.bookId(), request.memberId());
     return new ResultResponse(result.ok(), result.reason());
   }
 
@@ -108,14 +110,13 @@ public class LoanController {
                 }))
   })
   public ResultResponse reserve(@RequestBody @Valid ReserveRequest request) {
-    LibraryService.Result result = libraryService.reserveBook(request.bookId(), request.memberId());
+    Result result = libraryService.reserveBook(request.bookId(), request.memberId());
     return new ResultResponse(result.ok(), result.reason());
   }
 
   @PostMapping("/cancel-reservation")
   public ResultResponse cancelReservation(@RequestBody @Valid CancelReservationRequest request) {
-    LibraryService.Result result =
-        libraryService.cancelReservation(request.bookId(), request.memberId());
+    Result result = libraryService.cancelReservation(request.bookId(), request.memberId());
     return new ResultResponse(result.ok(), result.reason());
   }
 
@@ -148,8 +149,7 @@ public class LoanController {
                 }))
   })
   public ResultWithNextResponse returnBook(@RequestBody @Valid ReturnRequest request) {
-    LibraryService.ResultWithNext result =
-        libraryService.returnBook(request.bookId(), request.memberId());
+    ResultWithNext result = libraryService.returnBook(request.bookId(), request.memberId());
     return new ResultWithNextResponse(result.ok(), result.nextMemberId());
   }
 
@@ -184,8 +184,7 @@ public class LoanController {
                 }))
   })
   public ResultResponse extend(@RequestBody @Valid LoanExtensionRequest request) {
-    LibraryService.Result result =
-        libraryService.extendLoan(request.bookId(), request.memberId(), request.days());
+    Result result = libraryService.extendLoan(request.bookId(), request.memberId(), request.days());
     return new ResultResponse(result.ok(), result.reason());
   }
 

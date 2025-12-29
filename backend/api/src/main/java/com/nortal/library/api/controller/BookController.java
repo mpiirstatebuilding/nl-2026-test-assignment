@@ -7,6 +7,7 @@ import com.nortal.library.api.dto.DeleteBookRequest;
 import com.nortal.library.api.dto.ResultResponse;
 import com.nortal.library.api.dto.UpdateBookRequest;
 import com.nortal.library.core.LibraryService;
+import com.nortal.library.core.Result;
 import com.nortal.library.core.domain.Book;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -214,7 +215,7 @@ public class BookController {
   })
   @PostMapping
   public ResultResponse create(@RequestBody @Valid CreateBookRequest request) {
-    LibraryService.Result result = libraryService.createBook(request.id(), request.title());
+    Result result = libraryService.createBook(request.id(), request.title());
     return new ResultResponse(result.ok(), result.reason());
   }
 
@@ -259,7 +260,7 @@ public class BookController {
   })
   @PutMapping
   public ResultResponse update(@RequestBody @Valid UpdateBookRequest request) {
-    LibraryService.Result result = libraryService.updateBook(request.id(), request.title());
+    Result result = libraryService.updateBook(request.id(), request.title());
     return new ResultResponse(result.ok(), result.reason());
   }
 
@@ -322,7 +323,7 @@ public class BookController {
   })
   @DeleteMapping
   public ResultResponse delete(@RequestBody @Valid DeleteBookRequest request) {
-    LibraryService.Result result = libraryService.deleteBook(request.id());
+    Result result = libraryService.deleteBook(request.id());
     return new ResultResponse(result.ok(), result.reason());
   }
 

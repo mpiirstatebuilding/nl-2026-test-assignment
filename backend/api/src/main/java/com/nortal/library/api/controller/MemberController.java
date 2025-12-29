@@ -8,6 +8,8 @@ import com.nortal.library.api.dto.MembersResponse;
 import com.nortal.library.api.dto.ResultResponse;
 import com.nortal.library.api.dto.UpdateMemberRequest;
 import com.nortal.library.core.LibraryService;
+import com.nortal.library.core.MemberSummary;
+import com.nortal.library.core.Result;
 import com.nortal.library.core.domain.Member;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -128,7 +130,7 @@ public class MemberController {
   })
   @GetMapping("/{memberId}/summary")
   public MemberSummaryResponse summary(@PathVariable("memberId") String memberId) {
-    LibraryService.MemberSummary summary = libraryService.memberSummary(memberId);
+    MemberSummary summary = libraryService.memberSummary(memberId);
     if (!summary.ok()) {
       return MemberSummaryResponse.failure(summary.reason());
     }
@@ -209,7 +211,7 @@ public class MemberController {
   })
   @PostMapping
   public ResultResponse create(@RequestBody @Valid CreateMemberRequest request) {
-    LibraryService.Result result = libraryService.createMember(request.id(), request.name());
+    Result result = libraryService.createMember(request.id(), request.name());
     return new ResultResponse(result.ok(), result.reason());
   }
 
@@ -254,7 +256,7 @@ public class MemberController {
   })
   @PutMapping
   public ResultResponse update(@RequestBody @Valid UpdateMemberRequest request) {
-    LibraryService.Result result = libraryService.updateMember(request.id(), request.name());
+    Result result = libraryService.updateMember(request.id(), request.name());
     return new ResultResponse(result.ok(), result.reason());
   }
 
@@ -317,7 +319,7 @@ public class MemberController {
   })
   @DeleteMapping
   public ResultResponse delete(@RequestBody @Valid DeleteMemberRequest request) {
-    LibraryService.Result result = libraryService.deleteMember(request.id());
+    Result result = libraryService.deleteMember(request.id());
     return new ResultResponse(result.ok(), result.reason());
   }
 

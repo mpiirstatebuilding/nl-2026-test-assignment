@@ -1,539 +1,214 @@
 package com.nortal.library.core;
 
-import static com.nortal.library.core.ErrorCodes.*;
-
 import com.nortal.library.core.domain.Book;
 import com.nortal.library.core.domain.Member;
-import com.nortal.library.core.port.BookRepository;
-import com.nortal.library.core.port.MemberRepository;
+import com.nortal.library.core.service.BookManagementService;
+import com.nortal.library.core.service.LibraryQueryService;
+import com.nortal.library.core.service.LoanService;
+import com.nortal.library.core.service.MemberManagementService;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * Core business logic service for library operations.
+ * Facade service providing a unified interface to all library operations.
  *
- * <p>This service implements the following key business rules:
+ * <p>This service delegates to specialized services for different concerns:
  *
  * <ul>
- *   <li><b>Borrow Limits:</b> Members can borrow up to {@value MAX_LOANS} books simultaneously
- *   <li><b>Reservation Queue:</b> Books have a FIFO reservation queue; only the member at the head
- *       can borrow a reserved book
- *   <li><b>Automatic Handoff:</b> When a book is returned, it's automatically loaned to the next
- *       eligible member in the reservation queue
- *   <li><b>Immediate Loan:</b> Reserving an available book immediately loans it if the member is
- *       eligible
- *   <li><b>Data Integrity:</b> Books cannot be deleted if loaned or reserved; members cannot be
- *       deleted if they have active loans
+ *   <li>{@link LoanService} - Borrowing, returning, reserving, and extending loans
+ *   <li>{@link LibraryQueryService} - Searching and retrieving library data
+ *   <li>{@link BookManagementService} - Book CRUD operations
+ *   <li>{@link MemberManagementService} - Member CRUD operations
  * </ul>
  *
- * <p>All operations that modify state validate business rules before making changes and return
- * Result objects indicating success or failure with appropriate reason codes.
+ * <p>This design follows the Single Responsibility Principle, making each service focused on a
+ * specific domain area while maintaining a simple, unified API for consumers.
  */
 public class LibraryService {
-  /** Maximum number of books a member can borrow simultaneously. */
-  private static final int MAX_LOANS = 5;
+  private final LoanService loanService;
+  private final LibraryQueryService queryService;
+  private final BookManagementService bookManagement;
+  private final MemberManagementService memberManagement;
 
-  /** Default loan period in days. */
-  private static final int DEFAULT_LOAN_DAYS = 14;
-
-  /** Maximum total extension period in days from first due date (approximately 3 months). */
-  private static final int MAX_EXTENSION_DAYS = 90;
-
-  /** Index of the head (first priority) position in the reservation queue. */
-  private static final int QUEUE_HEAD_POSITION = 0;
-
-  private final BookRepository bookRepository;
-  private final MemberRepository memberRepository;
-
-  public LibraryService(BookRepository bookRepository, MemberRepository memberRepository) {
-    this.bookRepository = bookRepository;
-    this.memberRepository = memberRepository;
+  public LibraryService(
+      LoanService loanService,
+      LibraryQueryService queryService,
+      BookManagementService bookManagement,
+      MemberManagementService memberManagement) {
+    this.loanService = loanService;
+    this.queryService = queryService;
+    this.bookManagement = bookManagement;
+    this.memberManagement = memberManagement;
   }
+
+  // ===== Loan Operations (delegated to LoanService) =====
 
   /**
    * Borrows a book for a member.
    *
-   * <p>Business rules enforced:
-   *
-   * <ul>
-   *   <li>Book must not already be loaned to another member
-   *   <li>Member must not exceed the maximum borrow limit ({@value MAX_LOANS} books)
-   *   <li>If book has a reservation queue, only the member at the head can borrow it
-   *   <li>Member is automatically removed from reservation queue upon successful borrow
-   * </ul>
-   *
-   * @param bookId the ID of the book to borrow
-   * @param memberId the ID of the member borrowing the book
-   * @return Result with success or failure reason (BOOK_NOT_FOUND, MEMBER_NOT_FOUND, BORROW_LIMIT,
-   *     ALREADY_BORROWED, BOOK_UNAVAILABLE, RESERVED)
+   * @see LoanService#borrowBook(String, String)
    */
   public Result borrowBook(String bookId, String memberId) {
-    Optional<Book> book = bookRepository.findById(bookId);
-    if (book.isEmpty()) {
-      return Result.failure(BOOK_NOT_FOUND);
-    }
-    if (!memberRepository.existsById(memberId)) {
-      return Result.failure(MEMBER_NOT_FOUND);
-    }
-    if (!canMemberBorrow(memberId)) {
-      return Result.failure(BORROW_LIMIT);
-    }
-    Book entity = book.get();
-
-    // Prevent double loans: check if book is already loaned
-    if (entity.getLoanedTo() != null) {
-      // Check if the member trying to borrow is the current borrower
-      if (memberId.equals(entity.getLoanedTo())) {
-        return Result.failure(ALREADY_BORROWED);
-      } else {
-        return Result.failure(BOOK_UNAVAILABLE);
-      }
-    }
-
-    // Enforce reservation queue: only member at head of queue can borrow
-    if (!entity.getReservationQueue().isEmpty()) {
-      String firstInQueue = entity.getReservationQueue().get(QUEUE_HEAD_POSITION);
-      if (!memberId.equals(firstInQueue)) {
-        return Result.failure(RESERVED);
-      }
-      // Remove the member from queue since they're now borrowing
-      entity.getReservationQueue().remove(QUEUE_HEAD_POSITION);
-    }
-
-    entity.setLoanedTo(memberId);
-    LocalDate initialDueDate = LocalDate.now().plusDays(DEFAULT_LOAN_DAYS);
-    entity.setDueDate(initialDueDate);
-    entity.setFirstDueDate(initialDueDate); // Set anchor point for extension limits
-    bookRepository.save(entity);
-    return Result.success();
+    return loanService.borrowBook(bookId, memberId);
   }
 
   /**
    * Returns a book and automatically loans it to the next eligible member in the reservation queue.
    *
-   * <p>Business rules enforced:
-   *
-   * <ul>
-   *   <li>Only the current borrower can return the book (memberId is required for security)
-   *   <li>Book must be currently loaned to be returned
-   *   <li>If reservation queue exists, automatically loan to first eligible member
-   *   <li>Skip members who no longer exist or have reached their borrow limit
-   *   <li>Remove processed members from the queue
-   * </ul>
-   *
-   * @param bookId the ID of the book being returned
-   * @param memberId the ID of the member returning the book (required; must match current borrower)
-   * @return ResultWithNext with the ID of the member who received the book next (or null if no one)
+   * @see LoanService#returnBook(String, String)
    */
   public ResultWithNext returnBook(String bookId, String memberId) {
-    Optional<Book> book = bookRepository.findById(bookId);
-    if (book.isEmpty()) {
-      return ResultWithNext.failure();
-    }
-
-    Book entity = book.get();
-
-    // If book is not currently loaned, return cannot proceed
-    if (entity.getLoanedTo() == null) {
-      return ResultWithNext.failure();
-    }
-
-    // Validate that the returner is the current borrower (memberId is now required)
-    // Per API contract, memberId should always be provided for security
-    if (memberId == null || !memberId.equals(entity.getLoanedTo())) {
-      return ResultWithNext.failure();
-    }
-
-    // Clear the current loan
-    entity.setLoanedTo(null);
-    entity.setDueDate(null);
-    entity.setFirstDueDate(null); // Clear extension anchor point
-
-    // Process reservation queue: find first eligible member and loan to them automatically
-    String nextMemberId = processReservationQueue(entity);
-
-    bookRepository.save(entity);
-    return ResultWithNext.success(nextMemberId);
-  }
-
-  /**
-   * Processes the reservation queue to find the next eligible member and loans the book to them.
-   *
-   * <p>Iterates through the queue, removing ineligible members (deleted or at borrow limit), and
-   * loans to the first eligible member found.
-   *
-   * @param book the book being processed
-   * @return the ID of the member who received the book, or null if queue is empty or no eligible
-   *     members found
-   */
-  private String processReservationQueue(Book book) {
-    while (!book.getReservationQueue().isEmpty()) {
-      String candidateMemberId = book.getReservationQueue().get(QUEUE_HEAD_POSITION);
-
-      // Check if candidate exists and is under borrow limit
-      if (memberRepository.existsById(candidateMemberId) && canMemberBorrow(candidateMemberId)) {
-        // Eligible member found - loan book to them automatically
-        book.setLoanedTo(candidateMemberId);
-        LocalDate initialDueDate = LocalDate.now().plusDays(DEFAULT_LOAN_DAYS);
-        book.setDueDate(initialDueDate);
-        book.setFirstDueDate(initialDueDate); // Set anchor point for extension limits
-        book.getReservationQueue().remove(QUEUE_HEAD_POSITION);
-        return candidateMemberId;
-      } else {
-        // Skip ineligible member (deleted or at limit) and continue to next
-        book.getReservationQueue().remove(QUEUE_HEAD_POSITION);
-      }
-    }
-    // No eligible member found in queue
-    return null;
+    return loanService.returnBook(bookId, memberId);
   }
 
   /**
    * Reserves a book for a member, or immediately loans it if available.
    *
-   * <p>Business rules enforced:
-   *
-   * <ul>
-   *   <li>Member cannot reserve a book they already have borrowed
-   *   <li>Member cannot reserve the same book multiple times
-   *   <li>If book is available and member is eligible, loan immediately instead of queuing
-   *   <li>Otherwise, add member to the end of the reservation queue
-   * </ul>
-   *
-   * @param bookId the ID of the book to reserve
-   * @param memberId the ID of the member making the reservation
-   * @return Result with success or failure reason (BOOK_NOT_FOUND, MEMBER_NOT_FOUND,
-   *     ALREADY_BORROWED, ALREADY_RESERVED)
+   * @see LoanService#reserveBook(String, String)
    */
   public Result reserveBook(String bookId, String memberId) {
-    Optional<Book> book = bookRepository.findById(bookId);
-    if (book.isEmpty()) {
-      return Result.failure(BOOK_NOT_FOUND);
-    }
-    if (!memberRepository.existsById(memberId)) {
-      return Result.failure(MEMBER_NOT_FOUND);
-    }
-
-    Book entity = book.get();
-
-    // Reject if member is currently borrowing this book
-    if (memberId.equals(entity.getLoanedTo())) {
-      return Result.failure(ALREADY_BORROWED);
-    }
-
-    // Reject duplicate reservations
-    if (entity.getReservationQueue().contains(memberId)) {
-      return Result.failure(ALREADY_RESERVED);
-    }
-
-    // If book is available and member is eligible, loan it immediately
-    if (entity.getLoanedTo() == null && canMemberBorrow(memberId)) {
-      entity.setLoanedTo(memberId);
-      LocalDate initialDueDate = LocalDate.now().plusDays(DEFAULT_LOAN_DAYS);
-      entity.setDueDate(initialDueDate);
-      entity.setFirstDueDate(initialDueDate); // Set anchor point for extension limits
-      bookRepository.save(entity);
-      return Result.success();
-    }
-
-    // Otherwise, add to reservation queue
-    entity.getReservationQueue().add(memberId);
-    bookRepository.save(entity);
-    return Result.success();
+    return loanService.reserveBook(bookId, memberId);
   }
 
   /**
    * Cancels a member's reservation for a book.
    *
-   * @param bookId the ID of the book
-   * @param memberId the ID of the member whose reservation to cancel
-   * @return Result with success or failure reason (BOOK_NOT_FOUND, MEMBER_NOT_FOUND, NOT_RESERVED)
+   * @see LoanService#cancelReservation(String, String)
    */
   public Result cancelReservation(String bookId, String memberId) {
-    Optional<Book> book = bookRepository.findById(bookId);
-    if (book.isEmpty()) {
-      return Result.failure(BOOK_NOT_FOUND);
-    }
-    if (!memberRepository.existsById(memberId)) {
-      return Result.failure(MEMBER_NOT_FOUND);
-    }
+    return loanService.cancelReservation(bookId, memberId);
+  }
 
-    Book entity = book.get();
-    boolean removed = entity.getReservationQueue().remove(memberId);
-    if (!removed) {
-      return Result.failure(NOT_RESERVED);
-    }
-    bookRepository.save(entity);
-    return Result.success();
+  /**
+   * Extends the due date of a loaned book.
+   *
+   * @see LoanService#extendLoan(String, String, int)
+   */
+  public Result extendLoan(String bookId, String memberId, int days) {
+    return loanService.extendLoan(bookId, memberId, days);
   }
 
   /**
    * Checks if a member is eligible to borrow another book based on the borrow limit.
    *
-   * <p>A member can borrow if they have fewer than {@value MAX_LOANS} books currently on loan.
-   *
-   * <p><b>Performance note:</b> This method performs an O(n) scan of all books where n = total
-   * books in the library. For large datasets, consider adding a repository method like {@code
-   * countByLoanedTo(memberId)} to push the query to the database level.
-   *
-   * @param memberId the ID of the member to check
-   * @return true if member exists and has fewer than MAX_LOANS active loans, false otherwise
+   * @see LoanService#canMemberBorrow(String)
    */
   public boolean canMemberBorrow(String memberId) {
-    if (!memberRepository.existsById(memberId)) {
-      return false;
-    }
-    // Optimized: O(1) query instead of O(n) scan
-    return bookRepository.countByLoanedTo(memberId) < MAX_LOANS;
+    return loanService.canMemberBorrow(memberId);
   }
 
+  // ===== Query Operations (delegated to LibraryQueryService) =====
+
+  /**
+   * Searches for books based on various criteria.
+   *
+   * @see LibraryQueryService#searchBooks(String, Boolean, String)
+   */
   public List<Book> searchBooks(String titleContains, Boolean availableOnly, String loanedTo) {
-    // Optimized: Use database queries instead of in-memory filtering when possible
-    List<Book> books;
-
-    // Start with the most specific query
-    if (loanedTo != null) {
-      books = bookRepository.findByLoanedTo(loanedTo);
-    } else if (Boolean.TRUE.equals(availableOnly)) {
-      books = bookRepository.findByLoanedToIsNull();
-    } else if (Boolean.FALSE.equals(availableOnly)) {
-      // Get all loaned books (inverse of available)
-      books = bookRepository.findAll().stream().filter(b -> b.getLoanedTo() != null).toList();
-    } else {
-      books = bookRepository.findAll();
-    }
-
-    // Apply title filter in memory if needed
-    if (titleContains != null) {
-      String searchTerm = titleContains.toLowerCase();
-      books = books.stream().filter(b -> b.getTitle().toLowerCase().contains(searchTerm)).toList();
-    }
-
-    return books;
+    return queryService.searchBooks(titleContains, availableOnly, loanedTo);
   }
 
+  /**
+   * Retrieves all books with due dates before the specified date.
+   *
+   * @see LibraryQueryService#overdueBooks(LocalDate)
+   */
   public List<Book> overdueBooks(LocalDate today) {
-    // Optimized: O(1) database query instead of O(n) scan
-    return bookRepository.findByDueDateBefore(today);
+    return queryService.overdueBooks(today);
   }
 
-  public Result extendLoan(String bookId, String memberId, int days) {
-    if (days == 0) {
-      return Result.failure(INVALID_EXTENSION);
-    }
-    Optional<Book> book = bookRepository.findById(bookId);
-    if (book.isEmpty()) {
-      return Result.failure(BOOK_NOT_FOUND);
-    }
-    if (!memberRepository.existsById(memberId)) {
-      return Result.failure(MEMBER_NOT_FOUND);
-    }
-    Book entity = book.get();
-    if (entity.getLoanedTo() == null) {
-      return Result.failure(NOT_LOANED);
-    }
-    // Validate that the member extending is the current borrower (authorization check)
-    if (!memberId.equals(entity.getLoanedTo())) {
-      return Result.failure(NOT_BORROWER);
-    }
-    // Cannot extend if book has reservations (others are waiting)
-    if (!entity.getReservationQueue().isEmpty()) {
-      return Result.failure(RESERVATION_EXISTS);
-    }
-    LocalDate baseDate =
-        entity.getDueDate() == null
-            ? LocalDate.now().plusDays(DEFAULT_LOAN_DAYS)
-            : entity.getDueDate();
-    // Check if extension would exceed maximum extension limit (90 days from first due date)
-    if (entity.getFirstDueDate() != null) {
-      LocalDate newDueDate = baseDate.plusDays(days);
-      long totalDaysFromFirst = ChronoUnit.DAYS.between(entity.getFirstDueDate(), newDueDate);
-      if (totalDaysFromFirst > MAX_EXTENSION_DAYS) {
-        return Result.failure(MAX_EXTENSION_REACHED);
-      }
-    }
-    entity.setDueDate(baseDate.plusDays(days));
-    bookRepository.save(entity);
-    return Result.success();
-  }
-
+  /**
+   * Retrieves a summary of a member's current loans and reservations.
+   *
+   * @see LibraryQueryService#memberSummary(String)
+   */
   public MemberSummary memberSummary(String memberId) {
-    if (!memberRepository.existsById(memberId)) {
-      return new MemberSummary(false, MEMBER_NOT_FOUND, List.of(), List.of());
-    }
-    // Optimized: O(2) queries instead of O(n) scan
-    List<Book> loans = bookRepository.findByLoanedTo(memberId);
-    List<Book> booksWithReservations = bookRepository.findByReservationQueueContaining(memberId);
-    List<ReservationPosition> reservations = new ArrayList<>();
-    for (Book book : booksWithReservations) {
-      int idx = book.getReservationQueue().indexOf(memberId);
-      if (idx >= 0) {
-        reservations.add(new ReservationPosition(book.getId(), idx));
-      }
-    }
-    return new MemberSummary(true, null, loans, reservations);
+    return queryService.memberSummary(memberId);
   }
 
+  /**
+   * Finds a book by its ID.
+   *
+   * @see LibraryQueryService#findBook(String)
+   */
   public Optional<Book> findBook(String id) {
-    return bookRepository.findById(id);
+    return queryService.findBook(id);
   }
 
+  /**
+   * Retrieves all books in the library.
+   *
+   * @see LibraryQueryService#allBooks()
+   */
   public List<Book> allBooks() {
-    return bookRepository.findAll();
+    return queryService.allBooks();
   }
 
+  /**
+   * Retrieves all members.
+   *
+   * @see LibraryQueryService#allMembers()
+   */
   public List<Member> allMembers() {
-    return memberRepository.findAll();
+    return queryService.allMembers();
   }
 
+  // ===== Book Management (delegated to BookManagementService) =====
+
+  /**
+   * Creates a new book in the library.
+   *
+   * @see BookManagementService#createBook(String, String)
+   */
   public Result createBook(String id, String title) {
-    if (id == null || title == null) {
-      return Result.failure(INVALID_REQUEST);
-    }
-    // Check if book with this ID already exists
-    if (bookRepository.existsById(id)) {
-      return Result.failure(BOOK_ALREADY_EXISTS);
-    }
-    bookRepository.save(new Book(id, title));
-    return Result.success();
+    return bookManagement.createBook(id, title);
   }
 
+  /**
+   * Updates an existing book's title.
+   *
+   * @see BookManagementService#updateBook(String, String)
+   */
   public Result updateBook(String id, String title) {
-    Optional<Book> existing = bookRepository.findById(id);
-    if (existing.isEmpty()) {
-      return Result.failure(BOOK_NOT_FOUND);
-    }
-    if (title == null) {
-      return Result.failure(INVALID_REQUEST);
-    }
-    Book book = existing.get();
-    book.setTitle(title);
-    bookRepository.save(book);
-    return Result.success();
+    return bookManagement.updateBook(id, title);
   }
 
   /**
    * Deletes a book from the library.
    *
-   * <p>Data integrity rules enforced:
-   *
-   * <ul>
-   *   <li>Cannot delete a book that is currently on loan
-   *   <li>Cannot delete a book that has members in its reservation queue
-   * </ul>
-   *
-   * @param id the ID of the book to delete
-   * @return Result with success or failure reason (BOOK_NOT_FOUND, BOOK_LOANED, BOOK_RESERVED)
+   * @see BookManagementService#deleteBook(String)
    */
   public Result deleteBook(String id) {
-    Optional<Book> existing = bookRepository.findById(id);
-    if (existing.isEmpty()) {
-      return Result.failure(BOOK_NOT_FOUND);
-    }
-    Book book = existing.get();
-
-    // Prevent deletion if book is currently loaned
-    if (book.getLoanedTo() != null) {
-      return Result.failure(BOOK_LOANED);
-    }
-
-    // Prevent deletion if book has reservations
-    if (!book.getReservationQueue().isEmpty()) {
-      return Result.failure(BOOK_RESERVED);
-    }
-
-    bookRepository.delete(book);
-    return Result.success();
+    return bookManagement.deleteBook(id);
   }
 
+  // ===== Member Management (delegated to MemberManagementService) =====
+
+  /**
+   * Creates a new member.
+   *
+   * @see MemberManagementService#createMember(String, String)
+   */
   public Result createMember(String id, String name) {
-    if (id == null || name == null) {
-      return Result.failure(INVALID_REQUEST);
-    }
-    // Check if member with this ID already exists
-    if (memberRepository.existsById(id)) {
-      return Result.failure(MEMBER_ALREADY_EXISTS);
-    }
-    memberRepository.save(new Member(id, name));
-    return Result.success();
+    return memberManagement.createMember(id, name);
   }
 
+  /**
+   * Updates an existing member's name.
+   *
+   * @see MemberManagementService#updateMember(String, String)
+   */
   public Result updateMember(String id, String name) {
-    Optional<Member> existing = memberRepository.findById(id);
-    if (existing.isEmpty()) {
-      return Result.failure(MEMBER_NOT_FOUND);
-    }
-    if (name == null) {
-      return Result.failure(INVALID_REQUEST);
-    }
-    Member member = existing.get();
-    member.setName(name);
-    memberRepository.save(member);
-    return Result.success();
+    return memberManagement.updateMember(id, name);
   }
 
   /**
    * Deletes a member from the library system.
    *
-   * <p>Data integrity rules enforced:
-   *
-   * <ul>
-   *   <li>Cannot delete a member who currently has books on loan
-   *   <li>Member is automatically removed from all reservation queues before deletion
-   * </ul>
-   *
-   * @param id the ID of the member to delete
-   * @return Result with success or failure reason (MEMBER_NOT_FOUND, MEMBER_HAS_LOANS)
+   * @see MemberManagementService#deleteMember(String)
    */
   public Result deleteMember(String id) {
-    Optional<Member> existing = memberRepository.findById(id);
-    if (existing.isEmpty()) {
-      return Result.failure(MEMBER_NOT_FOUND);
-    }
-
-    // Check if member has active loans - must return books first
-    // Optimized: O(1) query instead of O(n) scan
-    if (bookRepository.existsByLoanedTo(id)) {
-      return Result.failure(MEMBER_HAS_LOANS);
-    }
-
-    // Remove member from all reservation queues to maintain data integrity
-    // Optimized: Only fetch books where member is in queue
-    List<Book> booksWithReservations = bookRepository.findByReservationQueueContaining(id);
-    for (Book book : booksWithReservations) {
-      book.getReservationQueue().remove(id);
-      bookRepository.save(book);
-    }
-
-    memberRepository.delete(existing.get());
-    return Result.success();
+    return memberManagement.deleteMember(id);
   }
-
-  public record Result(boolean ok, String reason) {
-    public static Result success() {
-      return new Result(true, null);
-    }
-
-    public static Result failure(String reason) {
-      return new Result(false, reason);
-    }
-  }
-
-  public record ResultWithNext(boolean ok, String nextMemberId) {
-    public static ResultWithNext success(String nextMemberId) {
-      return new ResultWithNext(true, nextMemberId);
-    }
-
-    public static ResultWithNext failure() {
-      return new ResultWithNext(false, null);
-    }
-  }
-
-  public record MemberSummary(
-      boolean ok, String reason, List<Book> loans, List<ReservationPosition> reservations) {}
-
-  public record ReservationPosition(String bookId, int position) {}
 }

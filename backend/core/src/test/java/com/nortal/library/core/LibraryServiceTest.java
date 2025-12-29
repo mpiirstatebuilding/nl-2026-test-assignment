@@ -7,12 +7,14 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.nortal.library.core.LibraryService.Result;
-import com.nortal.library.core.LibraryService.ResultWithNext;
 import com.nortal.library.core.domain.Book;
 import com.nortal.library.core.domain.Member;
 import com.nortal.library.core.port.BookRepository;
 import com.nortal.library.core.port.MemberRepository;
+import com.nortal.library.core.service.BookManagementService;
+import com.nortal.library.core.service.LibraryQueryService;
+import com.nortal.library.core.service.LoanService;
+import com.nortal.library.core.service.MemberManagementService;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +22,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -31,13 +32,21 @@ class LibraryServiceTest {
 
   @Mock private MemberRepository memberRepository;
 
-  @InjectMocks private LibraryService service;
+  private LibraryService service;
 
   private Book testBook;
   private Member testMember;
 
   @BeforeEach
   void setUp() {
+    // Create real service instances with mocked repositories
+    LoanService loanService = new LoanService(bookRepository, memberRepository);
+    LibraryQueryService queryService = new LibraryQueryService(bookRepository, memberRepository);
+    BookManagementService bookManagement = new BookManagementService(bookRepository);
+    MemberManagementService memberManagement =
+        new MemberManagementService(bookRepository, memberRepository);
+    service = new LibraryService(loanService, queryService, bookManagement, memberManagement);
+
     testBook = new Book("b1", "Test Book");
     testBook.setReservationQueue(new ArrayList<>());
     testMember = new Member("m1", "Test Member");
